@@ -73,6 +73,25 @@ python -m pob_build_planner.cli --open --open-mode file \
   --pob-executable "C:/Games/Path of Building/PathOfBuilding.exe"
 ```
 
+#### Windows one-click launcher
+
+If double-clicking the CLI shortcut closes immediately, use the bundled
+`run_pob_planner.bat` helper:
+
+1. Install [Python 3.9+](https://www.python.org/downloads/windows/) and ensure
+   it is added to your `PATH`.
+2. Place `PathOfBuilding.exe` in the default location or note the full path to
+   the executable.
+3. Double-click `run_pob_planner.bat` from this repository.
+4. When prompted, confirm the Path of Building location (or paste it if you
+   installed it elsewhere).
+5. Choose whether to open the top recommendation or a specific build id.
+
+The script keeps the console window open after running so you can review any
+errors instead of the window closing immediately. It automatically falls back to
+the `file` launch mode and points Path of Building at a temporary XML profile,
+avoiding issues with unregistered `poe://` handlers on Windows.
+
 ## Tests
 
 Execute the test suite with:
