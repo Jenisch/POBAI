@@ -5,7 +5,8 @@ import argparse
 import json
 from typing import Any, Dict, List, Optional
 
-from .planner import PlaystylePreferences, recommend_builds
+from .planner import PlaystylePreferences, get_build_by_id, recommend_builds
+from .pob import PathOfBuildingController, build_to_code
 
 
 def parse_bool(value: Optional[str]) -> Optional[bool]:
@@ -70,6 +71,29 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Output the recommendation payload as JSON instead of a formatted report.",
     )
+    parser.add_argument(
+        "--open",
+        action="store_true",
+        help="Open the top recommendation inside Path of Building using the poe:// handler.",
+    )
+    parser.add_argument(
+        "--open-build",
+        help="Skip recommendation matching and open a specific build id inside Path of Building.",
+    )
+    parser.add_argument(
+        "--pob-executable",
+        help="Optional explicit path to PathOfBuilding.exe for file-based launch mode.",
+    )
+    parser.add_argument(
+        "--open-mode",
+        choices=["protocol", "file"],
+        default="protocol",
+        help=(
+            "How to launch Path of Building when using --open or --open-build."
+            " 'protocol' uses poe://build links (default) and 'file' writes a temporary"
+            " XML file and opens it with the Path of Building executable."
+        ),
+    )
     return parser
 
 
@@ -101,6 +125,20 @@ def merge_config(args: argparse.Namespace) -> PlaystylePreferences:
 def run_cli(argv: Optional[List[str]] = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    controller = PathOfBuildingController(
+        executable_path=args.pob_executable,
+        open_mode=args.open_mode,
+    )
+
+    if args.open_build:
+        recommendation = get_build_by_id(args.open_build)
+        if not recommendation:
+            print(f"No build found with id '{args.open_build}'.")
+            return 1
+        code = controller.open_build(recommendation.build)
+        print(f"Opened build in Path of Building. Import code: {code}")
+        return 0
+
     preferences = merge_config(args)
     recommendations = recommend_builds(preferences, top_n=args.top)
     if not recommendations:
@@ -119,6 +157,7 @@ def run_cli(argv: Optional[List[str]] = None) -> int:
                 "skill_gems": rec.build.get("skill_gems", {}),
                 "gear": rec.build.get("gear", {}),
                 "progression": rec.build.get("progression", {}),
+                "pob_code": build_to_code(rec.build),
             }
             for rec in recommendations
         ]
@@ -129,6 +168,9 @@ def run_cli(argv: Optional[List[str]] = None) -> int:
             print(rec.to_report())
             if idx != len(recommendations):
                 print("\n")
+    if args.open and recommendations:
+        code = controller.open_build(recommendations[0].build)
+        print(f"\nOpened top recommendation in Path of Building. Import code: {code}")
     return 0
 
 

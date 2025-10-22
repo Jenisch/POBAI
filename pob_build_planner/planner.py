@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 from .data import BUILD_LIBRARY, Build
+from .pob import build_to_code
 
 
 def _normalise(value: Optional[str]) -> Optional[str]:
@@ -99,6 +100,8 @@ class BuildRecommendation:
             lines.append("Progression Tips:")
             for stage, guidance in build["progression"].items():
                 lines.append(f"  {stage.replace('_', ' ').title()}: {guidance}")
+        lines.append("")
+        lines.append(f"PoB Import Code: {build_to_code(build)}")
         return "\n".join(lines)
 
 

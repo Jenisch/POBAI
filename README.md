@@ -11,6 +11,9 @@ suggest curated Path of Building profiles tailored to your preferred playstyle.
 - CLI for querying recommendations with either direct flags or a JSON config
   file.
 - Optional JSON output for piping results into other tooling.
+- One-shot integration that opens recommended builds directly inside Path of
+  Building (Path of Exile 1) using the registered `poe://` protocol or by
+  invoking the desktop executable.
 
 ## Getting Started
 
@@ -43,6 +46,32 @@ python -m pob_build_planner.cli --config my_playstyle.json --top 1
 ```
 
 For machine-readable output, add `--json` to emit the recommendations as JSON.
+
+### Opening builds in Path of Building
+
+Pass `--open` to automatically launch the top recommendation inside Path of
+Building after it is printed:
+
+```bash
+python -m pob_build_planner.cli --damage-type fire --combat-range aoe --open
+```
+
+If you already know the build identifier you would like to inspect, call the
+CLI with `--open-build` and skip the recommendation phase entirely:
+
+```bash
+python -m pob_build_planner.cli --open-build toxic_rain_pathfinder
+```
+
+The CLI uses the `poe://build/<code>` URI handler by default. On systems where
+the protocol is not registered or if you prefer the desktop executable directly,
+switch the launch mode to `file` and optionally supply the path to
+`PathOfBuilding.exe`:
+
+```bash
+python -m pob_build_planner.cli --open --open-mode file \
+  --pob-executable "C:/Games/Path of Building/PathOfBuilding.exe"
+```
 
 ## Tests
 
