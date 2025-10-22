@@ -10,7 +10,10 @@ suggest curated Path of Building profiles tailored to your preferred playstyle.
   defensive layers.
 - CLI for querying recommendations with either direct flags or a JSON config
   file.
-- Optional JSON output for piping results into other tooling.
+- Optional JSON output (now with PoB import codes and pobb.in share links) for
+  piping results into other tooling.
+- Dual-phase planner that surfaces both a league-start-friendly pick and a
+  high-ceiling endgame option.
 - One-shot integration that opens recommended builds directly inside Path of
   Building (Path of Exile 1) using the registered `poe://` protocol or by
   invoking the desktop executable.
@@ -46,6 +49,23 @@ python -m pob_build_planner.cli --config my_playstyle.json --top 1
 ```
 
 For machine-readable output, add `--json` to emit the recommendations as JSON.
+Each entry contains the matched tags, PoB import code, and a shareable
+`https://pobb.in/<code>` link.
+
+### Dual-phase planning
+
+When you want a guided path from day one to pinnacle bossing, use the dual-phase
+mode to receive a league-starter and an endgame build in one pass:
+
+```bash
+python -m pob_build_planner.cli --config my_playstyle.json --dual-phase
+```
+
+The league-start recommendation prioritises characters marked as `league_start`
+in the curated library. The endgame pick gravitates toward high-budget or
+non-league-start profiles so you have a plan for the final upgrades. Combine the
+`--json` or `--open` flags to consume the structured payload or launch both
+builds immediately.
 
 ### Opening builds in Path of Building
 

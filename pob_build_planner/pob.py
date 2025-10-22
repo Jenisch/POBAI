@@ -22,6 +22,9 @@ import zlib
 from .data import Build
 
 
+POBB_IN_BASE_URL = "https://pobb.in/"
+
+
 TARGET_VERSION = "3_24"
 
 
@@ -134,6 +137,12 @@ def build_to_code(build: Build) -> str:
     return encoded.rstrip("=")
 
 
+def build_to_pobb_in_url(build: Build) -> str:
+    """Return a pobb.in share URL for a build."""
+
+    return f"{POBB_IN_BASE_URL}{build_to_code(build)}"
+
+
 @dataclass
 class PathOfBuildingController:
     """Lightweight automation helper for the Path of Building desktop client."""
@@ -167,5 +176,10 @@ class PathOfBuildingController:
         return code
 
 
-__all__ = ["build_to_xml", "build_to_code", "PathOfBuildingController"]
+__all__ = [
+    "build_to_xml",
+    "build_to_code",
+    "build_to_pobb_in_url",
+    "PathOfBuildingController",
+]
 

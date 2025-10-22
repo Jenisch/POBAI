@@ -5,8 +5,13 @@ import argparse
 import json
 from typing import Any, Dict, List, Optional
 
-from .planner import PlaystylePreferences, get_build_by_id, recommend_builds
-from .pob import PathOfBuildingController, build_to_code
+from .planner import (
+    PlaystylePreferences,
+    get_build_by_id,
+    recommend_builds,
+    recommend_dual_phase_builds,
+)
+from .pob import PathOfBuildingController
 
 
 def parse_bool(value: Optional[str]) -> Optional[bool]:
@@ -70,6 +75,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--json",
         action="store_true",
         help="Output the recommendation payload as JSON instead of a formatted report.",
+    )
+    parser.add_argument(
+        "--dual-phase",
+        action="store_true",
+        help=(
+            "Produce two recommendations: one tuned for league start and another optimised for endgame."
+        ),
     )
     parser.add_argument(
         "--open",
@@ -140,27 +152,38 @@ def run_cli(argv: Optional[List[str]] = None) -> int:
         return 0
 
     preferences = merge_config(args)
+    if args.dual_phase:
+        plan = recommend_dual_phase_builds(preferences, top_n=args.top)
+        if args.json:
+            print(json.dumps(plan.to_payload(), indent=2))
+        else:
+            print(plan.to_report())
+        if args.open:
+            opened = False
+            if plan.league_start:
+                code = controller.open_build(plan.league_start.build)
+                print(
+                    "\nOpened league start recommendation in Path of Building. Import code: "
+                    f"{code}"
+                )
+                opened = True
+            if plan.endgame:
+                code = controller.open_build(plan.endgame.build)
+                print(
+                    "Opened endgame recommendation in Path of Building. Import code: "
+                    f"{code}"
+                )
+                opened = True
+            if not opened:
+                print("No builds were opened because no recommendations were available.")
+        return 0
+
     recommendations = recommend_builds(preferences, top_n=args.top)
     if not recommendations:
         print("No builds matched the provided playstyle. Try relaxing your filters.")
         return 1
     if args.json:
-        payload = [
-            {
-                "id": rec.build["id"],
-                "name": rec.build["name"],
-                "score": rec.score,
-                "matched_tags": rec.matched_tags,
-                "ascendancy": rec.build["ascendancy"],
-                "summary": rec.build["summary"],
-                "core_passives": rec.build.get("core_passives", []),
-                "skill_gems": rec.build.get("skill_gems", {}),
-                "gear": rec.build.get("gear", {}),
-                "progression": rec.build.get("progression", {}),
-                "pob_code": build_to_code(rec.build),
-            }
-            for rec in recommendations
-        ]
+        payload = [rec.to_payload() for rec in recommendations]
         print(json.dumps(payload, indent=2))
     else:
         for idx, rec in enumerate(recommendations, start=1):

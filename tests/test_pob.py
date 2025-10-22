@@ -11,7 +11,12 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from pob_build_planner.data import BUILD_LIBRARY
-from pob_build_planner.pob import PathOfBuildingController, build_to_code, build_to_xml
+from pob_build_planner.pob import (
+    PathOfBuildingController,
+    build_to_code,
+    build_to_pobb_in_url,
+    build_to_xml,
+)
 
 
 def test_build_to_code_round_trip() -> None:
@@ -42,3 +47,10 @@ def test_build_to_xml_contains_skill_info() -> None:
     build = BUILD_LIBRARY[2]
     xml = build_to_xml(build)
     assert build["skill_gems"]["main_skill"] in xml  # type: ignore[index]
+
+
+def test_build_to_pobb_in_url_returns_share_link() -> None:
+    build = BUILD_LIBRARY[0]
+    url = build_to_pobb_in_url(build)
+    assert url.startswith("https://pobb.in/")
+    assert len(url.split("/")) >= 4  # ensures a code is appended

@@ -1,13 +1,23 @@
 """Path of Building build planner package."""
-from .planner import BuildRecommendation, PlaystylePreferences, get_build_by_id, recommend_builds
-from .pob import PathOfBuildingController, build_to_code, build_to_xml
+from .planner import (
+    BuildRecommendation,
+    DualPhasePlan,
+    PlaystylePreferences,
+    get_build_by_id,
+    recommend_builds,
+    recommend_dual_phase_builds,
+)
+from .pob import PathOfBuildingController, build_to_code, build_to_pobb_in_url, build_to_xml
 
 __all__ = [
     "PlaystylePreferences",
     "BuildRecommendation",
+    "DualPhasePlan",
     "recommend_builds",
+    "recommend_dual_phase_builds",
     "get_build_by_id",
     "build_to_xml",
     "build_to_code",
+    "build_to_pobb_in_url",
     "PathOfBuildingController",
 ]

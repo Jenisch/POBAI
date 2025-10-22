@@ -3,7 +3,11 @@ import sys
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from pob_build_planner.planner import PlaystylePreferences, recommend_builds
+from pob_build_planner.planner import (
+    PlaystylePreferences,
+    recommend_builds,
+    recommend_dual_phase_builds,
+)
 
 
 def test_recommendations_return_sorted_results():
@@ -36,3 +40,16 @@ def test_handles_strict_preferences_without_crashing():
     assert isinstance(results, list)
     for rec in results:
         assert rec.score >= 5
+
+
+def test_dual_phase_returns_league_and_endgame_recommendations():
+    prefs = PlaystylePreferences(budget="league_start", content_focus=["bossing"])
+    plan = recommend_dual_phase_builds(prefs)
+    assert plan.league_start is not None
+    assert plan.endgame is not None
+    league_tags = plan.league_start.build.get("tags", {})
+    assert bool(league_tags.get("league_start"))
+    endgame_tags = plan.endgame.build.get("tags", {})
+    budgets = {str(v).lower() for v in endgame_tags.get("budget", [])}
+    assert "high" in budgets or not bool(endgame_tags.get("league_start"))
+    assert plan.league_start.build["id"] != plan.endgame.build["id"]

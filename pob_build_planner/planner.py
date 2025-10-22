@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 from .data import BUILD_LIBRARY, Build
-from .pob import build_to_code
+from .pob import build_to_code, build_to_pobb_in_url
 
 
 def _normalise(value: Optional[str]) -> Optional[str]:
@@ -54,6 +54,33 @@ class BuildRecommendation:
     build: Build
     score: int
     matched_tags: Dict[str, Sequence[str]]
+    _pob_code_cache: Optional[str] = field(default=None, init=False, repr=False)
+
+    def pob_code(self) -> str:
+        if not self._pob_code_cache:
+            self._pob_code_cache = build_to_code(self.build)
+        return self._pob_code_cache
+
+    def pob_link(self) -> str:
+        return build_to_pobb_in_url(self.build)
+
+    def to_payload(self) -> Dict[str, object]:
+        build = self.build
+        payload: Dict[str, object] = {
+            "id": build.get("id", ""),
+            "name": build.get("name", ""),
+            "score": self.score,
+            "matched_tags": self.matched_tags,
+            "ascendancy": build.get("ascendancy", ""),
+            "summary": build.get("summary", ""),
+            "core_passives": build.get("core_passives", []),
+            "skill_gems": build.get("skill_gems", {}),
+            "gear": build.get("gear", {}),
+            "progression": build.get("progression", {}),
+            "pob_code": self.pob_code(),
+            "pobb_in_url": self.pob_link(),
+        }
+        return payload
 
     def to_report(self) -> str:
         build = self.build
@@ -101,7 +128,9 @@ class BuildRecommendation:
             for stage, guidance in build["progression"].items():
                 lines.append(f"  {stage.replace('_', ' ').title()}: {guidance}")
         lines.append("")
-        lines.append(f"PoB Import Code: {build_to_code(build)}")
+        code = self.pob_code()
+        lines.append(f"PoB Import Code: {code}")
+        lines.append(f"PoB Link: {build_to_pobb_in_url(self.build)}")
         return "\n".join(lines)
 
 
@@ -190,9 +219,98 @@ def get_build_by_id(build_id: str, *, library: Sequence[Build] = BUILD_LIBRARY) 
     return None
 
 
+@dataclass
+class DualPhasePlan:
+    """Encapsulates league start and endgame recommendations."""
+
+    league_start: Optional[BuildRecommendation]
+    endgame: Optional[BuildRecommendation]
+
+    def to_payload(self) -> Dict[str, Optional[Dict[str, object]]]:
+        return {
+            "league_start": self.league_start.to_payload() if self.league_start else None,
+            "endgame": self.endgame.to_payload() if self.endgame else None,
+        }
+
+    def to_report(self) -> str:
+        lines: List[str] = []
+        if self.league_start:
+            lines.append("===== League Start Recommendation =====")
+            lines.append(self.league_start.to_report())
+        else:
+            lines.append("No league start recommendation matched your filters.")
+        if self.endgame:
+            if lines:
+                lines.append("\n")
+            lines.append("===== Endgame Recommendation =====")
+            lines.append(self.endgame.to_report())
+        else:
+            if lines:
+                lines.append("\n")
+            lines.append("No endgame recommendation matched your filters.")
+        return "\n".join(lines)
+
+
+def recommend_dual_phase_builds(
+    preferences: PlaystylePreferences,
+    *,
+    library: Sequence[Build] = BUILD_LIBRARY,
+    top_n: int = 3,
+    min_score: int = 5,
+) -> DualPhasePlan:
+    """Return a pair of builds targeting league start and endgame goals."""
+
+    def _recommend_subset(candidates: Sequence[Build]) -> List[BuildRecommendation]:
+        if not candidates:
+            candidates = library
+        recs = recommend_builds(
+            preferences,
+            library=candidates,
+            top_n=max(top_n, 3),
+            min_score=min_score,
+        )
+        if not recs and min_score > 0:
+            recs = recommend_builds(
+                preferences,
+                library=candidates,
+                top_n=max(top_n, 3),
+                min_score=0,
+            )
+        return recs
+
+    league_candidates = [
+        build
+        for build in library
+        if bool(build.get("tags", {}).get("league_start"))
+    ]
+    league_recommendations = _recommend_subset(league_candidates)
+    league_choice = league_recommendations[0] if league_recommendations else None
+
+    endgame_candidates: List[Build] = []
+    for build in library:
+        tags = build.get("tags", {})
+        budgets = {str(v).lower() for v in tags.get("budget", [])}
+        if "high" in budgets or not bool(tags.get("league_start")):
+            endgame_candidates.append(build)
+    endgame_recommendations = _recommend_subset(endgame_candidates)
+
+    endgame_choice: Optional[BuildRecommendation] = None
+    if league_choice:
+        for rec in endgame_recommendations:
+            if rec.build.get("id") != league_choice.build.get("id"):
+                endgame_choice = rec
+                break
+    if not endgame_choice and endgame_recommendations:
+        endgame_choice = endgame_recommendations[0]
+
+    return DualPhasePlan(league_start=league_choice, endgame=endgame_choice)
+
+
 __all__ = [
     "PlaystylePreferences",
     "BuildRecommendation",
+    "DualPhasePlan",
     "recommend_builds",
+    "recommend_dual_phase_builds",
     "get_build_by_id",
 ]
