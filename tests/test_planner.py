@@ -5,6 +5,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 from pob_build_planner.planner import (
     PlaystylePreferences,
+    playstyle_from_description,
     recommend_builds,
     recommend_dual_phase_builds,
 )
@@ -53,3 +54,18 @@ def test_dual_phase_returns_league_and_endgame_recommendations():
     budgets = {str(v).lower() for v in endgame_tags.get("budget", [])}
     assert "high" in budgets or not bool(endgame_tags.get("league_start"))
     assert plan.league_start.build["id"] != plan.endgame.build["id"]
+
+
+def test_playstyle_from_description_sets_expected_preferences():
+    prefs = playstyle_from_description("daggers, fast attacker, melee, tanky")
+    assert prefs.damage_source == "attack"
+    assert prefs.combat_range == "melee"
+    assert prefs.mobility_priority is True
+    assert "armour" in prefs.defense_layers
+
+
+def test_description_merges_multiple_focus_keywords():
+    prefs = playstyle_from_description("bossing and mapping league starter")
+    assert sorted(prefs.content_focus) == ["bossing", "mapping"]
+    assert prefs.league_start is True
+    assert prefs.budget == "league_start"

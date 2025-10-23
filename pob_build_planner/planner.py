@@ -4,8 +4,96 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
+import re
+
 from .data import BUILD_LIBRARY, Build
 from .pob import build_to_code, build_to_pobb_in_url
+
+FREEFORM_SINGLE_VALUE_KEYWORDS = {
+    "melee": ("combat_range", "melee"),
+    "ranged": ("combat_range", "ranged"),
+    "aoe": ("combat_range", "aoe"),
+    "attack": ("damage_source", "attack"),
+    "attacker": ("damage_source", "attack"),
+    "dagger": ("damage_source", "attack"),
+    "daggers": ("damage_source", "attack"),
+    "fast attacker": ("damage_source", "attack"),
+    "caster": ("damage_source", "spell"),
+    "spell": ("damage_source", "spell"),
+    "spells": ("damage_source", "spell"),
+    "minion": ("damage_source", "minion"),
+    "summoner": ("damage_source", "minion"),
+    "trapper": ("damage_source", "trap"),
+    "trap": ("damage_source", "trap"),
+    "dot": ("damage_source", "damage_over_time"),
+    "damage over time": ("damage_source", "damage_over_time"),
+    "physical": ("damage_type", "physical"),
+    "fire": ("damage_type", "fire"),
+    "cold": ("damage_type", "elemental"),
+    "lightning": ("damage_type", "lightning"),
+    "elemental": ("damage_type", "elemental"),
+    "chaos": ("damage_type", "chaos"),
+    "poison": ("damage_type", "chaos"),
+    "budget": ("budget", "medium"),
+    "cheap": ("budget", "low"),
+    "starter": ("budget", "league_start"),
+    "league start": ("budget", "league_start"),
+    "expensive": ("budget", "high"),
+    "high budget": ("budget", "high"),
+    "medium budget": ("budget", "medium"),
+    "simple": ("complexity", "low"),
+    "easy": ("complexity", "low"),
+    "complex": ("complexity", "high"),
+    "advanced": ("complexity", "high"),
+}
+
+FREEFORM_BOOLEAN_KEYWORDS = {
+    "league start": ("league_start", True),
+    "league starter": ("league_start", True),
+    "starter": ("league_start", True),
+    "ssf": ("league_start", True),
+    "hardcore": ("league_start", True),
+    "endgame": ("league_start", False),
+    "fast": ("mobility_priority", True),
+    "speedy": ("mobility_priority", True),
+    "mobile": ("mobility_priority", True),
+    "slow": ("mobility_priority", False),
+}
+
+FREEFORM_MULTI_VALUE_KEYWORDS = {
+    "mapping": ("content_focus", "mapping"),
+    "maps": ("content_focus", "mapping"),
+    "boss": ("content_focus", "bossing"),
+    "bossing": ("content_focus", "bossing"),
+    "delve": ("content_focus", "delve"),
+    "juiced": ("content_focus", "juiced_mapping"),
+    "juiced maps": ("content_focus", "juiced_mapping"),
+    "tanky": ("defense_layers", "armour"),
+    "armour": ("defense_layers", "armour"),
+    "armor": ("defense_layers", "armour"),
+    "block": ("defense_layers", "block"),
+    "regen": ("defense_layers", "life_regen"),
+    "life regen": ("defense_layers", "life_regen"),
+    "leech": ("defense_layers", "life_leech"),
+    "fortify": ("defense_layers", "fortify"),
+    "suppression": ("defense_layers", "spell_suppression"),
+    "supp": ("defense_layers", "spell_suppression"),
+    "evasion": ("defense_layers", "evasion"),
+    "avoidance": ("defense_layers", "ailment_avoidance"),
+}
+
+FREEFORM_PHRASES = [
+    ("fast attacker", {"damage_source": "attack", "mobility_priority": True}),
+    ("league starter", {"league_start": True, "budget": "league_start"}),
+    ("league start", {"league_start": True, "budget": "league_start"}),
+    ("endgame", {"budget": "high"}),
+    (
+        "tanky",
+        {
+            "defense_layers": ["armour", "block", "life_regen"],
+        },
+    ),
+]
 
 
 def _normalise(value: Optional[str]) -> Optional[str]:
@@ -47,6 +135,61 @@ class PlaystylePreferences:
             defense_layers=_normalise_iterable(data.get("defense_layers")),
             mobility_priority=data.get("mobility_priority") if data else None,
         )
+
+
+def _tokenise_description(description: str) -> List[str]:
+    tokens = []
+    lowered = description.lower()
+    for phrase, _ in FREEFORM_PHRASES:
+        if phrase in lowered:
+            tokens.append(phrase)
+    tokens.extend(re.split(r"[\s,;\n]+", lowered))
+    return [token for token in tokens if token]
+
+
+def parse_freeform_preferences(description: str) -> Dict[str, object]:
+    """Convert a free-form description into playstyle preference hints."""
+
+    preferences: Dict[str, object] = {
+        "content_focus": set(),
+        "defense_layers": set(),
+    }
+
+    lowered = description.lower()
+    for phrase, updates in FREEFORM_PHRASES:
+        if phrase in lowered:
+            for key, value in updates.items():
+                if key in {"content_focus", "defense_layers"}:
+                    preferences.setdefault(key, set())
+                    preferences[key].update(value)
+                else:
+                    preferences[key] = value
+
+    tokens = _tokenise_description(description)
+    for token in tokens:
+        if token in FREEFORM_SINGLE_VALUE_KEYWORDS:
+            key, value = FREEFORM_SINGLE_VALUE_KEYWORDS[token]
+            preferences[key] = value
+        if token in FREEFORM_BOOLEAN_KEYWORDS:
+            key, value = FREEFORM_BOOLEAN_KEYWORDS[token]
+            preferences[key] = value
+        if token in FREEFORM_MULTI_VALUE_KEYWORDS:
+            key, value = FREEFORM_MULTI_VALUE_KEYWORDS[token]
+            preferences.setdefault(key, set())
+            preferences[key].add(value)
+
+    if isinstance(preferences.get("content_focus"), set):
+        preferences["content_focus"] = sorted(preferences["content_focus"])
+    if isinstance(preferences.get("defense_layers"), set):
+        preferences["defense_layers"] = sorted(preferences["defense_layers"])
+
+    return preferences
+
+
+def playstyle_from_description(description: str) -> PlaystylePreferences:
+    """Create a PlaystylePreferences object from a free-form description."""
+
+    return PlaystylePreferences.from_dict(parse_freeform_preferences(description))
 
 
 @dataclass

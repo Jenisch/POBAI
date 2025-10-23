@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional
 from .planner import (
     PlaystylePreferences,
     get_build_by_id,
+    parse_freeform_preferences,
     recommend_builds,
     recommend_dual_phase_builds,
 )
@@ -33,6 +34,12 @@ def build_parser() -> argparse.ArgumentParser:
         )
     )
     parser.add_argument("--config", help="Path to a JSON file containing playstyle preferences.")
+    parser.add_argument(
+        "--describe",
+        help=(
+            "Free-form description of your playstyle such as 'daggers, fast attacker, melee, tanky'."
+        ),
+    )
     parser.add_argument("--damage-type", help="Preferred damage type such as physical, fire, chaos.")
     parser.add_argument("--combat-range", help="melee, ranged, aoe, etc.")
     parser.add_argument(
@@ -116,6 +123,15 @@ def merge_config(args: argparse.Namespace) -> PlaystylePreferences:
             config = json.load(fh)
             if not isinstance(config, dict):
                 raise ValueError("Configuration file must be a JSON object")
+    if args.describe:
+        freeform = parse_freeform_preferences(args.describe)
+        for key, value in freeform.items():
+            if key in {"content_focus", "defense_layers"}:
+                existing = set(config.get(key, []))
+                existing.update(value)
+                config[key] = sorted(existing)
+            else:
+                config[key] = value
     cli_overrides: Dict[str, Any] = {
         "damage_type": args.damage_type,
         "combat_range": args.combat_range,

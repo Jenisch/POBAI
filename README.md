@@ -24,6 +24,14 @@ The project uses standard Python tooling. Install dependencies (only the
 standard library is required) and run the CLI using Python 3.9+.
 
 ```bash
+python -m pob_build_planner.cli --describe "daggers, fast attacker, melee, tanky"
+```
+
+The planner will interpret the free-form description and translate common
+keywords like "tanky", "fast", or "league starter" into the structured filters
+it needs. You can still use explicit flags when you prefer complete control:
+
+```bash
 python -m pob_build_planner.cli --damage-type chaos --combat-range ranged \
   --damage-source attack --budget league_start --content-focus mapping bossing
 ```
