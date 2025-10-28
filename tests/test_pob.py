@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import subprocess
 import zlib
 
 import pytest
@@ -70,7 +71,7 @@ def test_controller_file_mode_permission_error(monkeypatch: pytest.MonkeyPatch) 
 
     monkeypatch.setattr("tempfile.NamedTemporaryFile", lambda *a, **k: DummyTemp())
 
-    def boom(_args):
+    def boom(_args, **_kwargs):
         raise PermissionError("no access")
 
     monkeypatch.setattr("subprocess.Popen", boom)
@@ -79,3 +80,41 @@ def test_controller_file_mode_permission_error(monkeypatch: pytest.MonkeyPatch) 
 
     with pytest.raises(PathOfBuildingLaunchError):
         controller.open_build(build)
+
+
+def test_controller_accepts_directory_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    build = BUILD_LIBRARY[0]
+
+    class DummyTemp:
+        def __init__(self):
+            self.name = "temp.xml"
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def write(self, *_args, **_kwargs):
+            return None
+
+    monkeypatch.setattr("tempfile.NamedTemporaryFile", lambda *a, **k: DummyTemp())
+
+    captured: list[list[str]] = []
+
+    def fake_popen(args, **_kwargs):
+        captured.append(args)
+
+    monkeypatch.setattr(subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(os.path, "isdir", lambda path: path == "C:/PoBCommunity")
+    monkeypatch.setattr(
+        os.path,
+        "isfile",
+        lambda path: path == "C:/PoBCommunity/Path of Building Community.exe",
+    )
+
+    controller = PathOfBuildingController(executable_path="C:/PoBCommunity", open_mode="file")
+    controller.open_build(build)
+
+    assert captured
+    assert captured[0][0] == "C:/PoBCommunity/Path of Building Community.exe"

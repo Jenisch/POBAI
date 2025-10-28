@@ -143,7 +143,8 @@ python -m pob_build_planner.cli --open-build toxic_rain_pathfinder
 The CLI uses the `poe://build/<code>` URI handler by default. On systems where
 the protocol is not registered or if you prefer the desktop executable directly,
 switch the launch mode to `file` and optionally supply the path to
-`PathOfBuilding.exe`:
+`PathOfBuilding.exe` (or the installation directory—the planner will look for
+`Path of Building Community.exe` automatically):
 
 ```bash
 python -m pob_build_planner.cli --open --open-mode file \
@@ -157,8 +158,8 @@ If double-clicking the CLI shortcut closes immediately, use the bundled
 
 1. Install [Python 3.9+](https://www.python.org/downloads/windows/) and ensure
    it is added to your `PATH`.
-2. Place `PathOfBuilding.exe` in the default location or note the full path to
-   the executable.
+2. Place `PathOfBuilding.exe` in the default location or note the installation
+   directory or full path to the executable.
 3. Double-click `run_pob_planner.bat` from this repository.
 4. When prompted, confirm the Path of Building location (or paste it if you
    installed it elsewhere).

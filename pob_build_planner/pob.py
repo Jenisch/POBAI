@@ -11,6 +11,7 @@ directly.
 from __future__ import annotations
 
 import base64
+import os
 from dataclasses import dataclass
 import subprocess
 import tempfile
@@ -143,12 +144,40 @@ def build_to_pobb_in_url(build: Build) -> str:
     return f"{POBB_IN_BASE_URL}{build_to_code(build)}"
 
 
+WINDOWS_DEFAULT_EXECUTABLE = "Path of Building Community.exe"
+
+
 @dataclass
 class PathOfBuildingController:
     """Lightweight automation helper for the Path of Building desktop client."""
 
     executable_path: str | None = None
     open_mode: str = "protocol"
+
+    def _resolve_executable(self) -> str | None:
+        """Return the executable path, accepting directories on Windows."""
+
+        if not self.executable_path:
+            return None
+
+        expanded = os.path.normpath(os.path.expanduser(self.executable_path))
+        if os.path.isdir(expanded):
+            candidate = os.path.join(expanded, WINDOWS_DEFAULT_EXECUTABLE)
+            if os.path.isfile(candidate):
+                return candidate
+            raise PathOfBuildingLaunchError(
+                "Failed to launch Path of Building using the provided executable "
+                f"'{self.executable_path}': expected to find '{WINDOWS_DEFAULT_EXECUTABLE}' in the "
+                "directory."
+            )
+
+        _, ext = os.path.splitext(expanded)
+        if os.name == "nt" and not ext:
+            exe_candidate = expanded + ".exe"
+            if os.path.isfile(exe_candidate):
+                return exe_candidate
+
+        return expanded
 
     def open_build(self, build: Build, *, use_cache: bool = True) -> str:
         code: str
@@ -166,13 +195,14 @@ class PathOfBuildingController:
             with tempfile.NamedTemporaryFile("w", suffix=".xml", delete=False) as handle:
                 handle.write(xml_payload)
                 temp_path = handle.name
-            if self.executable_path:
+            resolved_executable = self._resolve_executable()
+            if resolved_executable:
                 try:
-                    subprocess.Popen([self.executable_path, temp_path])
+                    subprocess.Popen([resolved_executable, temp_path])
                 except OSError as exc:  # pragma: no cover - exercised via tests
                     raise PathOfBuildingLaunchError(
                         "Failed to launch Path of Building using the provided executable "
-                        f"'{self.executable_path}': {exc}"
+                        f"'{resolved_executable}': {exc}"
                     ) from exc
             else:
                 webbrowser.open(f"file://{temp_path}")
