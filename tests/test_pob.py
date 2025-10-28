@@ -5,6 +5,7 @@ import copy
 import os
 import subprocess
 import sys
+import typing as t
 import urllib.request
 import xml.etree.ElementTree as ET
 import zlib
@@ -48,6 +49,7 @@ def test_controller_protocol(monkeypatch: pytest.MonkeyPatch) -> None:
     code = controller.open_build(build)
     assert calls and calls[0].startswith("poe://build/")
     assert code in calls[0]
+    assert controller.last_export_path is None
 
 
 def test_build_to_xml_contains_skill_info() -> None:
@@ -186,13 +188,15 @@ def test_controller_file_mode_permission_error(monkeypatch: pytest.MonkeyPatch) 
     with pytest.raises(PathOfBuildingLaunchError):
         controller.open_build(build)
 
+    assert controller.last_export_path == "temp.xml"
+
 
 def test_controller_accepts_directory_path(monkeypatch: pytest.MonkeyPatch) -> None:
     build = BUILD_LIBRARY[0]
 
     class DummyTemp:
-        def __init__(self):
-            self.name = "temp.xml"
+        def __init__(self, name: str):
+            self.name = name
 
         def __enter__(self):
             return self
@@ -203,7 +207,16 @@ def test_controller_accepts_directory_path(monkeypatch: pytest.MonkeyPatch) -> N
         def write(self, *_args, **_kwargs):
             return None
 
-    monkeypatch.setattr("tempfile.NamedTemporaryFile", lambda *a, **k: DummyTemp())
+    captured_kwargs: list[dict[str, t.Any]] = []
+    generated_paths: list[str] = []
+
+    def fake_named_tempfile(*args, **kwargs):
+        captured_kwargs.append(dict(kwargs))
+        path = os.path.join("C:/PoBCommunity", "Builds", "temp.xml")
+        generated_paths.append(path)
+        return DummyTemp(path)
+
+    monkeypatch.setattr("tempfile.NamedTemporaryFile", fake_named_tempfile)
 
     captured: list[list[str]] = []
 
@@ -211,18 +224,26 @@ def test_controller_accepts_directory_path(monkeypatch: pytest.MonkeyPatch) -> N
         captured.append(args)
 
     monkeypatch.setattr(subprocess, "Popen", fake_popen)
-    monkeypatch.setattr(os.path, "isdir", lambda path: path == "C:/PoBCommunity")
+    monkeypatch.setattr(
+        os.path,
+        "isdir",
+        lambda path: path in {"C:/PoBCommunity", os.path.join("C:/PoBCommunity", "Builds")},
+    )
     monkeypatch.setattr(
         os.path,
         "isfile",
         lambda path: path == "C:/PoBCommunity/Path of Building Community.exe",
     )
+    monkeypatch.setattr(os, "makedirs", lambda path, exist_ok=True: None)
 
     controller = PathOfBuildingController(executable_path="C:/PoBCommunity", open_mode="file")
     controller.open_build(build)
 
     assert captured
     assert captured[0][0] == "C:/PoBCommunity/Path of Building Community.exe"
+    assert captured_kwargs
+    assert captured_kwargs[0].get("dir") == os.path.join("C:/PoBCommunity", "Builds")
+    assert controller.last_export_path == generated_paths[0]
 
 
 def test_detect_tree_version_prefers_latest(monkeypatch: pytest.MonkeyPatch) -> None:

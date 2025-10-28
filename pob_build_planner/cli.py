@@ -214,6 +214,11 @@ def run_cli(argv: Optional[List[str]] = None) -> int:
         open_mode=args.open_mode,
     )
 
+    def print_export_path() -> None:
+        export_path = getattr(controller, "last_export_path", None)
+        if export_path:
+            print(f"Exported build file: {export_path}")
+
     poedb_metadata = load_poedb_metadata(args.poedb_path)
     external_builds = load_path_of_building_builds(
         args.path_of_building, poedb_metadata=poedb_metadata
@@ -228,11 +233,13 @@ def run_cli(argv: Optional[List[str]] = None) -> int:
         try:
             code = controller.open_build(recommendation.build)
             print(f"Opened build in Path of Building. Import code: {code}")
+            print_export_path()
         except PathOfBuildingLaunchError as exc:
             print(str(exc))
             code = recommendation.pob_code()
             print(f"Import code: {code}")
             print("Unable to open Path of Building automatically, but the build code is available above.")
+            print_export_path()
         return 0
 
     def present_recommendations(recommendations: List[Any]) -> None:
@@ -258,6 +265,7 @@ def run_cli(argv: Optional[List[str]] = None) -> int:
             try:
                 code = controller.open_build(recommendations[0].build)
                 print(f"\nOpened top recommendation in Path of Building. Import code: {code}")
+                print_export_path()
             except PathOfBuildingLaunchError as exc:
                 print(str(exc))
                 code = recommendations[0].pob_code()
@@ -265,6 +273,7 @@ def run_cli(argv: Optional[List[str]] = None) -> int:
                 print(
                     "Unable to open Path of Building automatically. Use the import code above to open the build manually."
                 )
+                print_export_path()
 
     if args.skill:
         skill_recs = recommend_builds_by_skill(args.skill, top_n=args.top, library=library)
@@ -309,10 +318,12 @@ def run_cli(argv: Optional[List[str]] = None) -> int:
                         "\nOpened league start recommendation in Path of Building. Import code: "
                         f"{code}"
                     )
+                    print_export_path()
                     opened = True
                 except PathOfBuildingLaunchError as exc:
                     print(str(exc))
                     print(f"League start import code: {plan.league_start.pob_code()}")
+                    print_export_path()
                     launch_failed = True
             if plan.endgame:
                 try:
@@ -321,10 +332,12 @@ def run_cli(argv: Optional[List[str]] = None) -> int:
                         "Opened endgame recommendation in Path of Building. Import code: "
                         f"{code}"
                     )
+                    print_export_path()
                     opened = True
                 except PathOfBuildingLaunchError as exc:
                     print(str(exc))
                     print(f"Endgame import code: {plan.endgame.pob_code()}")
+                    print_export_path()
                     launch_failed = True
             if not opened:
                 if launch_failed:

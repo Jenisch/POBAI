@@ -284,6 +284,7 @@ class PathOfBuildingController:
     executable_path: str | None = None
     open_mode: str = "protocol"
     _detected_tree_version: str | None = field(default=None, init=False, repr=False)
+    last_export_path: str | None = field(default=None, init=False, repr=False)
 
     def _resolve_executable(self) -> str | None:
         """Return the executable path, accepting directories on Windows."""
@@ -365,6 +366,7 @@ class PathOfBuildingController:
         return None
 
     def open_build(self, build: Build, *, use_cache: bool = True) -> str:
+        self.last_export_path = None
         detected_version = self.detect_tree_version()
         if detected_version:
             if build.get("target_version") != detected_version:
@@ -383,11 +385,14 @@ class PathOfBuildingController:
         if self.open_mode == "protocol":
             webbrowser.open(f"poe://build/{code}")
         elif self.open_mode == "file":
-            xml_payload = zlib.decompress(_decode_code(code)).decode("utf-8")
-            with tempfile.NamedTemporaryFile("w", suffix=".xml", delete=False) as handle:
-                handle.write(xml_payload)
-                temp_path = handle.name
             resolved_executable = self._resolve_executable()
+            export_dir: str | None = None
+            if resolved_executable:
+                install_dir = os.path.dirname(resolved_executable)
+                candidate = os.path.join(install_dir, "Builds")
+                if _ensure_directory(candidate):
+                    export_dir = candidate
+            temp_path = self._export_build_file(build, export_dir)
             if resolved_executable:
                 try:
                     subprocess.Popen([resolved_executable, temp_path])
@@ -402,6 +407,28 @@ class PathOfBuildingController:
             raise ValueError(f"Unknown open mode '{self.open_mode}'")
 
         return code
+
+    def _export_build_file(self, build: Build, directory: str | None) -> str:
+        xml_payload = build_to_xml(build)
+        file_kwargs: dict[str, t.Any] = {
+            "mode": "w",
+            "suffix": ".xml",
+            "delete": False,
+            "encoding": "utf-8",
+        }
+        if directory:
+            file_kwargs["dir"] = directory
+        try:
+            with tempfile.NamedTemporaryFile(**file_kwargs) as handle:
+                handle.write(xml_payload)
+                temp_path = handle.name
+        except OSError:
+            file_kwargs.pop("dir", None)
+            with tempfile.NamedTemporaryFile(**file_kwargs) as handle:
+                handle.write(xml_payload)
+                temp_path = handle.name
+        self.last_export_path = temp_path
+        return temp_path
 
 
 __all__ = [
@@ -426,4 +453,12 @@ def _normalise_tree_version(entry: str) -> str | None:
 
 def _tree_version_key(version: str) -> tuple[int, ...]:
     return tuple(int(part) if part.isdigit() else 0 for part in version.split("_"))
+
+
+def _ensure_directory(path: str) -> bool:
+    try:
+        os.makedirs(path, exist_ok=True)
+        return True
+    except OSError:
+        return False
 
