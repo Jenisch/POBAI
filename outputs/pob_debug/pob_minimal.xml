@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PathOfBuilding>
+  <Build level="90" targetVersion="3_26" className="Ranger" ascendClassName="Deadeye"/>
+  <Tree>
+    <Spec treeVersion="3_26">
+      <Nodes>
+        <Node id="40479"/>
+        <Node id="29534"/>
+      </Nodes>
+    </Spec>
+  </Tree>
+</PathOfBuilding>
