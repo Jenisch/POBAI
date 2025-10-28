@@ -11,6 +11,7 @@ def test_generate_build_includes_skill_in_six_link():
     gems = build["skill_gems"]["six_link"]
     assert gems[0] == "Kinetic Blast"
     assert "Power Charge On Critical Support" in gems
+    assert "template_code" in build
 
 
 def test_generate_build_applies_metadata_tags():

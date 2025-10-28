@@ -15,6 +15,7 @@ import re
 from typing import Dict, Iterable, List, Mapping, MutableMapping, Optional
 
 from .data import Build
+from .templates import ARCHETYPE_TEMPLATE_CODES
 
 
 def _normalise(text: str) -> str:
@@ -127,6 +128,9 @@ class ArchetypePlan:
             "gear": dict(self.gear),
             "progression": dict(self.progression),
         }
+        template_code = ARCHETYPE_TEMPLATE_CODES.get(self.key)
+        if template_code:
+            build["template_code"] = template_code
         return build
 
 

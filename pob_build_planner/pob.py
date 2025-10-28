@@ -11,6 +11,7 @@ directly.
 from __future__ import annotations
 
 import base64
+import copy
 import os
 from dataclasses import dataclass
 import subprocess
@@ -71,28 +72,57 @@ def build_to_xml(build: Build, *, target_version: str = TARGET_VERSION) -> str:
     """Render a build dictionary to a Path of Building XML payload."""
 
     class_name, ascendancy = _split_class_and_ascendancy(str(build.get("ascendancy", "")))
-    root = ET.Element("PathOfBuilding")
-    ET.SubElement(
-        root,
-        "Build",
-        level=str(build.get("level", 90)),
-        targetVersion=target_version,
-        className=class_name,
-        ascendClassName=ascendancy,
-    )
+    template_root: ET.Element | None = None
+    template_code = build.get("template_code")
+    if isinstance(template_code, str) and template_code:
+        try:
+            template_xml = zlib.decompress(_decode_code(template_code)).decode("utf-8")
+            template_root = ET.fromstring(template_xml)
+        except Exception:
+            template_root = None
+
+    if template_root is not None:
+        root = copy.deepcopy(template_root)
+    else:
+        root = ET.Element("PathOfBuilding")
+
+    build_elem = root.find("Build")
+    if build_elem is None:
+        build_elem = ET.SubElement(root, "Build")
+    build_elem.set("level", str(build.get("level", 90)))
+    build_elem.set("targetVersion", target_version)
+    build_elem.set("className", class_name)
+    build_elem.set("ascendClassName", ascendancy)
+
+    for child in list(root):
+        if child.tag == "Notes":
+            root.remove(child)
     notes = ET.SubElement(root, "Notes")
     notes.text = _build_notes(build)
 
-    tree = ET.SubElement(root, "Tree", activeSpec="1")
-    ET.SubElement(
-        tree,
-        "Spec",
-        className=class_name,
-        ascendClassName=ascendancy,
-        targetVersion=target_version,
-        title="Generated Planner Spec",
-    )
+    tree = root.find("Tree")
+    if tree is None:
+        tree = ET.SubElement(root, "Tree", activeSpec="1")
+    specs = tree.findall("Spec")
+    if not specs:
+        specs = [
+            ET.SubElement(
+                tree,
+                "Spec",
+                className=class_name,
+                ascendClassName=ascendancy,
+                targetVersion=target_version,
+                title="Generated Planner Spec",
+            )
+        ]
+    for spec in specs:
+        spec.set("className", class_name)
+        spec.set("ascendClassName", ascendancy)
+        spec.set("targetVersion", target_version)
 
+    for child in list(root):
+        if child.tag == "Skills":
+            root.remove(child)
     skills_elem = ET.SubElement(root, "Skills")
     skills = t.cast(dict[str, t.Any], build.get("skill_gems", {}))
     main_skill = str(skills.get("main_skill", "")) or "Cyclone"
@@ -114,11 +144,14 @@ def build_to_xml(build: Build, *, target_version: str = TARGET_VERSION) -> str:
             enabled="true",
         )
 
-    items_elem = ET.SubElement(root, "Items")
     items = t.cast(dict[str, str], build.get("gear", {}))
-    for slot, description in items.items():
-        item = ET.SubElement(items_elem, "Item", slot=slot.title())
-        item.text = description
+    items_elem = root.find("Items")
+    if items_elem is None and items:
+        items_elem = ET.SubElement(root, "Items")
+    if items_elem is not None and not list(items_elem):
+        for slot, description in items.items():
+            item = ET.SubElement(items_elem, "Item", slot=slot.title())
+            item.text = description
 
     xml_bytes = ET.tostring(root, encoding="utf-8")
     return xml_bytes.decode("utf-8")

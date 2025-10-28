@@ -1,17 +1,18 @@
 from __future__ import annotations
 
 import base64
+import os
 import subprocess
+import sys
+import xml.etree.ElementTree as ET
 import zlib
 
 import pytest
 
-import os
-import sys
-
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from pob_build_planner.data import BUILD_LIBRARY
+from pob_build_planner.generator import generate_build_for_skill
 from pob_build_planner.pob import PathOfBuildingController, PathOfBuildingLaunchError
 from pob_build_planner.pob import build_to_code, build_to_pobb_in_url, build_to_xml
 
@@ -44,6 +45,18 @@ def test_build_to_xml_contains_skill_info() -> None:
     build = BUILD_LIBRARY[2]
     xml = build_to_xml(build)
     assert build["skill_gems"]["main_skill"] in xml  # type: ignore[index]
+
+
+def test_build_to_xml_uses_template_tree_and_items() -> None:
+    build = generate_build_for_skill("Kinetic Blast")
+    xml = build_to_xml(build)
+    root = ET.fromstring(xml)
+    spec = root.find(".//Tree/Spec")
+    assert spec is not None
+    assert spec.get("nodes")
+    items = root.find("Items")
+    assert items is not None
+    assert list(items)
 
 
 def test_build_to_pobb_in_url_returns_share_link() -> None:

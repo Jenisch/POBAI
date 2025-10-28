@@ -84,7 +84,9 @@ single skill idea to a ready-to-import Path of Building profile. When none of
 the curated or synced libraries include your requested gem, the planner now
 generates a fresh Path of Building configuration on the fly using PoEDB
 metadata to choose the ascendancy, support gems, gear direction, and defensive
-layers before emitting the import code and pobb.in link.
+layers before emitting the import code and pobb.in link. The generated builds
+are hydrated with the Path of Building Community sample trees and items so the
+client opens to a complete baseline rather than an empty profile.
 
 ### Dual-phase planning
 
