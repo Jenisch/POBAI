@@ -72,14 +72,39 @@ def test_build_to_xml_uses_template_tree_and_items() -> None:
     assert list(items)
 
 
-def test_build_to_xml_sets_latest_target_version() -> None:
+def test_build_to_xml_uses_template_target_version_when_present() -> None:
     build = generate_build_for_skill("Kinetic Blast")
     xml = build_to_xml(build)
     root = ET.fromstring(xml)
     build_elem = root.find("Build")
     assert build_elem is not None
 
-    assert build_elem.get("targetVersion") == TARGET_VERSION
+    target_version = build_elem.get("targetVersion")
+    assert target_version
+
+    template_code = build.get("template_code")
+    if isinstance(template_code, str):
+        padding = "=" * (-len(template_code) % 4)
+        template_xml = zlib.decompress(base64.urlsafe_b64decode(template_code + padding)).decode("utf-8")
+        template_root = ET.fromstring(template_xml)
+        template_build = template_root.find("Build")
+        assert template_build is not None
+        assert target_version == template_build.get("targetVersion")
+    else:
+        assert target_version == TARGET_VERSION
+
+
+def test_build_to_xml_sets_main_skill_group() -> None:
+    build = generate_build_for_skill("Kinetic Blast")
+    xml = build_to_xml(build)
+    root = ET.fromstring(xml)
+    skill_group = root.find(".//Skills/Skill")
+    assert skill_group is not None
+    assert skill_group.get("mainActiveSkill") == "1"
+    gem = skill_group.find("Gem")
+    assert gem is not None
+    assert gem.get("nameSpec") == "Kinetic Blast"
+    assert gem.get("qualityId") == "Default"
 
 
 def test_build_to_pobb_in_url_returns_share_link(monkeypatch: pytest.MonkeyPatch) -> None:

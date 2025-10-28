@@ -98,7 +98,7 @@ def build_to_xml(build: Build, *, target_version: str = TARGET_VERSION) -> str:
         build_elem = ET.SubElement(root, "Build")
     build_elem.set("level", str(build.get("level", 90)))
     template_target_version = build_elem.get("targetVersion") if using_template else None
-    applied_target_version = target_version or template_target_version
+    applied_target_version = template_target_version or target_version
     if applied_target_version:
         build_elem.set("targetVersion", applied_target_version)
     build_elem.set("className", class_name)
@@ -113,6 +113,8 @@ def build_to_xml(build: Build, *, target_version: str = TARGET_VERSION) -> str:
     tree = root.find("Tree")
     if tree is None:
         tree = ET.SubElement(root, "Tree", activeSpec="1")
+    else:
+        tree.set("activeSpec", tree.get("activeSpec", "1"))
     specs = tree.findall("Spec")
     if not specs:
         specs = [
@@ -132,30 +134,57 @@ def build_to_xml(build: Build, *, target_version: str = TARGET_VERSION) -> str:
             spec.set("treeVersion", applied_target_version)
             spec.set("targetVersion", applied_target_version)
 
+    build_elem.set("mainSocketGroup", build_elem.get("mainSocketGroup", "1"))
+
+    skills_elem: ET.Element | None = None
     for child in list(root):
         if child.tag == "Skills":
-            root.remove(child)
-    skills_elem = ET.SubElement(root, "Skills")
+            skills_elem = child
+            break
+    if skills_elem is None:
+        skills_elem = ET.SubElement(root, "Skills")
+
+    skills_attrs = dict(skills_elem.attrib)
+    default_attrs = {
+        "sortGemsByDPSField": "CombinedDPS",
+        "sortGemsByDPS": "true",
+        "defaultGemQuality": "nil",
+        "defaultGemLevel": "nil",
+        "showSupportGemTypes": "ALL",
+        "showAltQualityGems": "false",
+    }
+    for key, value in default_attrs.items():
+        skills_attrs.setdefault(key, value)
+
+    skills_elem.clear()
+    skills_elem.attrib.update(skills_attrs)
+
     skills = t.cast(dict[str, t.Any], build.get("skill_gems", {}))
     main_skill = str(skills.get("main_skill", "")) or "Cyclone"
     main = ET.SubElement(
         skills_elem,
         "Skill",
-        activeSkillId=main_skill.replace(" ", ""),
+        id="1",
+        label="Generated Main Setup",
         enabled="true",
-        slot="Main",
-        label="Main Skill",
+        slot="Weapon 1",
+        mainActiveSkill="1",
+        mainActiveSkillCalcs="1",
     )
     six_link = t.cast(t.Iterable[str], skills.get("six_link", []))
     for gem in six_link:
+        gem_name = str(gem).strip()
+        if not gem_name:
+            continue
         ET.SubElement(
             main,
             "Gem",
-            skillId=str(gem).replace(" ", ""),
+            skillId=gem_name.replace(" ", ""),
             level="20",
             quality="20",
             enabled="true",
-            nameSpec=str(gem),
+            qualityId="Default",
+            nameSpec=gem_name,
         )
 
     items = t.cast(dict[str, str], build.get("gear", {}))
