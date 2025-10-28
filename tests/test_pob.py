@@ -209,3 +209,50 @@ def test_controller_accepts_directory_path(monkeypatch: pytest.MonkeyPatch) -> N
 
     assert captured
     assert captured[0][0] == "C:/PoBCommunity/Path of Building Community.exe"
+
+
+def test_detect_tree_version_prefers_latest(monkeypatch: pytest.MonkeyPatch) -> None:
+    controller = PathOfBuildingController(executable_path="C:/PoBCommunity/PathOfBuilding.exe")
+
+    tree_dir = os.path.normpath("C:/PoBCommunity/TreeData")
+
+    def fake_isdir(path: str) -> bool:
+        normalised = os.path.normpath(path)
+        return normalised in {os.path.normpath("C:/PoBCommunity"), tree_dir}
+
+    monkeypatch.setattr(os.path, "isdir", fake_isdir)
+    monkeypatch.setattr(
+        os.path,
+        "isfile",
+        lambda path: os.path.normpath(path) == os.path.normpath("C:/PoBCommunity/PathOfBuilding.exe"),
+    )
+    monkeypatch.setattr(
+        os,
+        "listdir",
+        lambda path: ["3_21.zip", "3_23_1.zip", "3_22.zip"] if os.path.normpath(path) == tree_dir else [],
+    )
+
+    detected = controller.detect_tree_version()
+    assert detected == "3_23_1"
+
+
+def test_open_build_uses_detected_tree_version(monkeypatch: pytest.MonkeyPatch) -> None:
+    build = copy.deepcopy(BUILD_LIBRARY[0])
+    build.pop("pob_code", None)
+
+    monkeypatch.setattr(
+        PathOfBuildingController,
+        "detect_tree_version",
+        lambda self: "3_23",
+    )
+
+    calls: list[str] = []
+    monkeypatch.setattr("webbrowser.open", lambda url: calls.append(url))
+
+    controller = PathOfBuildingController(open_mode="protocol")
+    code = controller.open_build(build)
+
+    assert build.get("target_version") == "3_23"
+    padding = "=" * (-len(code) % 4)
+    xml = zlib.decompress(base64.urlsafe_b64decode(code + padding)).decode("utf-8")
+    assert 'targetVersion="3_23"' in xml

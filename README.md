@@ -158,6 +158,14 @@ python -m pob_build_planner.cli --open --open-mode file \
   --pob-executable "C:/Games/Path of Building/PathOfBuilding.exe"
 ```
 
+When you provide an installation directory or executable path the planner now
+inspects the bundled `TreeData` folder to discover which passive tree versions
+are available. Generated and curated builds automatically adopt the detected
+version so Path of Building no longer opens them as empty profiles requesting a
+download when your client is behind the latest patch. The import codes printed
+to the terminal and pobb.in links use the same version to keep everything in
+sync.
+
 #### Windows one-click launcher
 
 If double-clicking the CLI shortcut closes immediately, use the bundled

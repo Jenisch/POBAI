@@ -14,7 +14,8 @@ import base64
 import copy
 import json
 import os
-from dataclasses import dataclass
+import re
+from dataclasses import dataclass, field
 import subprocess
 import tempfile
 import typing as t
@@ -75,6 +76,9 @@ def _build_notes(build: Build) -> str:
 
 def build_to_xml(build: Build, *, target_version: str = TARGET_VERSION) -> str:
     """Render a build dictionary to a Path of Building XML payload."""
+
+    requested_version = str(build.get("target_version", "")).strip()
+    target_version = requested_version or target_version
 
     class_name, ascendancy = _split_class_and_ascendancy(str(build.get("ascendancy", "")))
     template_root: ET.Element | None = None
@@ -276,6 +280,7 @@ class PathOfBuildingController:
 
     executable_path: str | None = None
     open_mode: str = "protocol"
+    _detected_tree_version: str | None = field(default=None, init=False, repr=False)
 
     def _resolve_executable(self) -> str | None:
         """Return the executable path, accepting directories on Windows."""
@@ -302,7 +307,68 @@ class PathOfBuildingController:
 
         return expanded
 
+    def detect_tree_version(self) -> str | None:
+        """Inspect the installation for available passive tree versions."""
+
+        if self._detected_tree_version is not None:
+            return self._detected_tree_version
+
+        candidates: list[str] = []
+        path = self.executable_path
+        if path:
+            expanded = os.path.normpath(os.path.expanduser(path))
+            if os.path.isdir(expanded):
+                candidates.append(expanded)
+            else:
+                possible = expanded
+                if os.name == "nt" and not os.path.splitext(expanded)[1]:
+                    exe_candidate = expanded + ".exe"
+                    if os.path.isfile(exe_candidate):
+                        possible = exe_candidate
+                if os.path.isfile(possible):
+                    candidates.append(os.path.dirname(possible))
+
+        try:
+            resolved = self._resolve_executable()
+        except PathOfBuildingLaunchError:
+            resolved = None
+        if resolved and os.path.isfile(resolved):
+            candidates.append(os.path.dirname(resolved))
+
+        checked: set[str] = set()
+        for base in candidates:
+            norm_base = os.path.normpath(base)
+            if norm_base in checked:
+                continue
+            checked.add(norm_base)
+            for probe in {norm_base, os.path.dirname(norm_base)}:
+                tree_dir = os.path.join(probe, "TreeData")
+                if not os.path.isdir(tree_dir):
+                    continue
+                try:
+                    entries = os.listdir(tree_dir)
+                except OSError:
+                    continue
+                versions: list[str] = []
+                for entry in entries:
+                    version = _normalise_tree_version(entry)
+                    if version:
+                        versions.append(version)
+                if versions:
+                    versions.sort(key=_tree_version_key, reverse=True)
+                    self._detected_tree_version = versions[0]
+                    return self._detected_tree_version
+
+        return None
+
     def open_build(self, build: Build, *, use_cache: bool = True) -> str:
+        detected_version = self.detect_tree_version()
+        if detected_version:
+            if build.get("target_version") != detected_version:
+                build["target_version"] = detected_version
+                build.pop("pob_code", None)
+                build.pop("pobb_in_url", None)
+
         code: str
         if use_cache and isinstance(build.get("pob_code"), str):
             code = t.cast(str, build["pob_code"])
@@ -346,4 +412,15 @@ __all__ = [
 class PathOfBuildingLaunchError(RuntimeError):
     """Raised when the planner fails to launch the Path of Building client."""
 
+
+def _normalise_tree_version(entry: str) -> str | None:
+    base, _ext = os.path.splitext(entry)
+    parts = [part for part in re.split(r"[_.-]", base) if part]
+    if not parts or not all(part.isdigit() for part in parts):
+        return None
+    return "_".join(parts)
+
+
+def _tree_version_key(version: str) -> tuple[int, ...]:
+    return tuple(int(part) if part.isdigit() else 0 for part in version.split("_"))
 

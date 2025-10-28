@@ -236,6 +236,15 @@ def run_cli(argv: Optional[List[str]] = None) -> int:
         return 0
 
     def present_recommendations(recommendations: List[Any]) -> None:
+        detected_version = controller.detect_tree_version()
+        if detected_version:
+            for rec in recommendations:
+                if rec.build.get("target_version") != detected_version:
+                    rec.build["target_version"] = detected_version
+                    rec.build.pop("pob_code", None)
+                    rec.build.pop("pobb_in_url", None)
+                    if hasattr(rec, "_pob_code_cache"):
+                        rec._pob_code_cache = None  # type: ignore[attr-defined]
         if args.json:
             payload = [rec.to_payload() for rec in recommendations]
             print(json.dumps(payload, indent=2))
