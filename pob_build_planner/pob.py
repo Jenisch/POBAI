@@ -393,7 +393,6 @@ class PathOfBuildingController:
                 if _ensure_directory(candidate):
                     export_dir = candidate
             temp_path = self._export_build_file(build, export_dir)
-            self.last_export_path = temp_path
             if resolved_executable:
                 try:
                     args = [resolved_executable, temp_path]
@@ -411,8 +410,51 @@ class PathOfBuildingController:
 
         return code
 
+    def open_code(self, code: str, *, xml_payload: str | None = None) -> None:
+        """Launch Path of Building using a pre-encoded build string."""
+
+        self.last_export_path = None
+        if self.open_mode == "protocol":
+            webbrowser.open(f"poe://build/{code}")
+            return
+
+        if self.open_mode == "file":
+            resolved_executable = self._resolve_executable()
+            export_dir: str | None = None
+            if resolved_executable:
+                install_dir = os.path.dirname(resolved_executable)
+                candidate = os.path.join(install_dir, "Builds")
+                if _ensure_directory(candidate):
+                    export_dir = candidate
+            payload = xml_payload
+            if payload is None:
+                try:
+                    payload = zlib.decompress(base64.b64decode(code)).decode("utf-8")
+                except Exception as exc:  # pragma: no cover - defensive
+                    raise PathOfBuildingLaunchError(
+                        "Failed to decode Path of Building code for file-mode launch"
+                    ) from exc
+            temp_path = self._export_xml_payload(payload, export_dir)
+            if resolved_executable:
+                try:
+                    subprocess.Popen([resolved_executable, temp_path])
+                except OSError as exc:  # pragma: no cover - exercised via tests
+                    webbrowser.open(f"poe://build/{code}")
+                    raise PathOfBuildingLaunchError(
+                        "Failed to launch Path of Building using the provided executable "
+                        f"'{resolved_executable}': {exc}"
+                    ) from exc
+            else:
+                webbrowser.open(f"poe://build/{code}")
+            return
+
+        raise ValueError(f"Unknown open mode '{self.open_mode}'")
+
     def _export_build_file(self, build: Build, directory: str | None) -> str:
         xml_payload = build_to_xml(build)
+        return self._export_xml_payload(xml_payload, directory)
+
+    def _export_xml_payload(self, xml_payload: str, directory: str | None) -> str:
         file_kwargs: dict[str, t.Any] = {
             "mode": "w",
             "suffix": ".xml",

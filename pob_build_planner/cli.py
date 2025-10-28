@@ -7,6 +7,7 @@ import sys
 from typing import Any, Dict, List, Optional, Sequence
 
 from .data import BUILD_LIBRARY
+from .demo import BASE_VERSION as DEADEYE_BASE_VERSION, get_deadeye_demo_code, get_deadeye_demo_xml
 from .generator import generate_build_for_skill
 from .integrations import load_path_of_building_builds, load_poedb_metadata
 from .planner import (
@@ -55,6 +56,31 @@ def parse_bool(value: Optional[str]) -> Optional[bool]:
     if lowered in {"false", "no", "n", "0"}:
         return False
     raise argparse.ArgumentTypeError(f"Cannot interpret '{value}' as a boolean flag")
+
+
+def _deadeye_version_candidates(controller: PathOfBuildingController) -> List[str]:
+    detected = controller.detect_tree_version()
+    candidates: List[str] = []
+    if detected:
+        candidates.append(detected)
+    candidates.append(DEADEYE_BASE_VERSION)
+    try:
+        major, minor = DEADEYE_BASE_VERSION.split("_", maxsplit=1)
+        major_int = int(major)
+        minor_int = int(minor)
+    except ValueError:
+        pass
+    else:
+        for offset in range(1, 4):
+            candidates.append(f"{major_int}_{minor_int + offset}")
+
+    seen: set[str] = set()
+    ordered: List[str] = []
+    for version in candidates:
+        if version and version not in seen:
+            seen.add(version)
+            ordered.append(version)
+    return ordered
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -138,6 +164,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="Skip recommendation matching and open a specific build id inside Path of Building.",
     )
     parser.add_argument(
+        "--deadeye-demo",
+        action="store_true",
+        help=(
+            "Emit the fixed Ranger Deadeye demo build code and attempt to open it in Path of Building."
+        ),
+    )
+    parser.add_argument(
         "--pob-executable",
         help="Optional explicit path to PathOfBuilding.exe for file-based launch mode.",
     )
@@ -213,6 +246,28 @@ def run_cli(argv: Optional[List[str]] = None) -> int:
         executable_path=args.pob_executable,
         open_mode=args.open_mode,
     )
+
+    if args.deadeye_demo:
+        base_code = get_deadeye_demo_code()
+        sys.stdout.write(base_code)
+        sys.stdout.flush()
+
+        last_error: Optional[PathOfBuildingLaunchError] = None
+        opened = False
+        detected = controller.detect_tree_version()
+        for version in _deadeye_version_candidates(controller):
+            xml_payload = get_deadeye_demo_xml(version)
+            code = get_deadeye_demo_code(version)
+            try:
+                controller.open_code(code, xml_payload=xml_payload)
+                opened = True
+                if detected:
+                    break
+            except PathOfBuildingLaunchError as exc:
+                last_error = exc
+        if not opened and last_error:
+            print(str(last_error), file=sys.stderr)
+        return 0
 
     def print_export_path() -> None:
         export_path = getattr(controller, "last_export_path", None)

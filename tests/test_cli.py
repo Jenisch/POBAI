@@ -8,6 +8,7 @@ import urllib.request
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from pob_build_planner import cli
+from pob_build_planner.demo import get_deadeye_demo_code, get_deadeye_demo_xml
 from pob_build_planner.data import BUILD_LIBRARY
 
 
@@ -54,6 +55,32 @@ def test_prompt_for_skill(monkeypatch, capsys):
     assert skill == "Cyclone"
     captured = capsys.readouterr()
     assert "Cyclone" in captured.out
+
+
+def test_deadeye_demo_prints_code_and_opens(monkeypatch, capsys):
+    base_code = get_deadeye_demo_code()
+    base_xml = get_deadeye_demo_xml()
+
+    opened = []
+
+    class FakeController:
+        def __init__(self, *args, **kwargs):
+            self.open_mode = kwargs.get("open_mode", "protocol")
+            self.executable_path = kwargs.get("executable_path")
+
+        def detect_tree_version(self):
+            return "3_24"
+
+        def open_code(self, code, xml_payload=None):
+            opened.append((code, xml_payload))
+
+    monkeypatch.setattr(cli, "PathOfBuildingController", FakeController)
+
+    exit_code = cli.run_cli(["--deadeye-demo"])
+    assert exit_code == 0
+    captured = capsys.readouterr()
+    assert captured.out == base_code
+    assert opened == [(base_code, base_xml)]
 
 
 def test_run_cli_interactive_skill(monkeypatch, capsys):
