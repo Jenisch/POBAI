@@ -13,8 +13,14 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 from pob_build_planner.data import BUILD_LIBRARY
 from pob_build_planner.generator import generate_build_for_skill
-from pob_build_planner.pob import PathOfBuildingController, PathOfBuildingLaunchError
-from pob_build_planner.pob import build_to_code, build_to_pobb_in_url, build_to_xml
+from pob_build_planner.pob import (
+    TARGET_VERSION,
+    PathOfBuildingController,
+    PathOfBuildingLaunchError,
+    build_to_code,
+    build_to_pobb_in_url,
+    build_to_xml,
+)
 
 
 def test_build_to_code_round_trip() -> None:
@@ -59,21 +65,14 @@ def test_build_to_xml_uses_template_tree_and_items() -> None:
     assert list(items)
 
 
-def test_build_to_xml_preserves_template_target_version() -> None:
+def test_build_to_xml_sets_latest_target_version() -> None:
     build = generate_build_for_skill("Kinetic Blast")
     xml = build_to_xml(build)
     root = ET.fromstring(xml)
     build_elem = root.find("Build")
     assert build_elem is not None
 
-    template_code = build.get("template_code")
-    assert isinstance(template_code, str)
-    padding = "=" * (-len(template_code) % 4)
-    template_xml = zlib.decompress(base64.urlsafe_b64decode(template_code + padding)).decode("utf-8")
-    template_root = ET.fromstring(template_xml)
-    expected_version = template_root.find("Build").get("targetVersion")
-
-    assert build_elem.get("targetVersion") == expected_version
+    assert build_elem.get("targetVersion") == TARGET_VERSION
 
 
 def test_build_to_pobb_in_url_returns_share_link() -> None:

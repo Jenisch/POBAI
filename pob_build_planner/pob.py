@@ -93,7 +93,7 @@ def build_to_xml(build: Build, *, target_version: str = TARGET_VERSION) -> str:
         build_elem = ET.SubElement(root, "Build")
     build_elem.set("level", str(build.get("level", 90)))
     template_target_version = build_elem.get("targetVersion") if using_template else None
-    applied_target_version = template_target_version or target_version
+    applied_target_version = target_version or template_target_version
     if applied_target_version:
         build_elem.set("targetVersion", applied_target_version)
     build_elem.set("className", class_name)
@@ -123,8 +123,9 @@ def build_to_xml(build: Build, *, target_version: str = TARGET_VERSION) -> str:
     for spec in specs:
         spec.set("className", class_name)
         spec.set("ascendClassName", ascendancy)
-        if not using_template:
-            spec.set("targetVersion", target_version)
+        if applied_target_version:
+            spec.set("treeVersion", applied_target_version)
+            spec.set("targetVersion", applied_target_version)
 
     for child in list(root):
         if child.tag == "Skills":
