@@ -425,13 +425,18 @@ class PathOfBuildingController:
                 if _ensure_directory(candidate):
                     export_dir = candidate
             temp_path = self._export_build_file(build, export_dir)
+            self.last_export_path = temp_path
             if resolved_executable:
                 try:
-                    args = [resolved_executable]
-                    if protocol_url:
-                        args.append(protocol_url)
+                    args = [resolved_executable, temp_path]
                     subprocess.Popen(args)
                 except OSError as exc:  # pragma: no cover - exercised via tests
+                    if protocol_url:
+                        webbrowser.open(protocol_url)
+                    elif share_url:
+                        webbrowser.open(share_url)
+                    else:
+                        webbrowser.open(f"file://{temp_path}")
                     raise PathOfBuildingLaunchError(
                         "Failed to launch Path of Building using the provided executable "
                         f"'{resolved_executable}': {exc}"

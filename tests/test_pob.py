@@ -206,6 +206,7 @@ def test_controller_file_mode_permission_error(monkeypatch: pytest.MonkeyPatch) 
         return t.cast(str, payload["pobb_in_url"])
 
     launched: list[list[str]] = []
+    opened: list[str] = []
 
     def boom(args, **_kwargs):
         launched.append(args)
@@ -213,6 +214,7 @@ def test_controller_file_mode_permission_error(monkeypatch: pytest.MonkeyPatch) 
 
     monkeypatch.setattr("subprocess.Popen", boom)
     monkeypatch.setattr("pob_build_planner.pob.build_to_pobb_in_url", fake_share_url)
+    monkeypatch.setattr("webbrowser.open", lambda url: opened.append(url))
 
     controller = PathOfBuildingController(executable_path="PathOfBuilding.exe", open_mode="file")
 
@@ -220,7 +222,8 @@ def test_controller_file_mode_permission_error(monkeypatch: pytest.MonkeyPatch) 
         controller.open_build(build)
 
     assert controller.last_export_path == "temp.xml"
-    assert launched and launched[0] == ["PathOfBuilding.exe", "pob://pobb.in/abc123"]
+    assert launched and launched[0] == ["PathOfBuilding.exe", "temp.xml"]
+    assert opened and opened[0] == "pob://pobb.in/abc123"
 
 
 def test_controller_accepts_directory_path(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -273,6 +276,7 @@ def test_controller_accepts_directory_path(monkeypatch: pytest.MonkeyPatch) -> N
 
     assert captured
     assert captured[0][0] == "C:/PoBCommunity/Path of Building Community.exe"
+    assert captured[0][1] == generated_paths[0]
     assert captured_kwargs
     assert captured_kwargs[0].get("dir") == os.path.join("C:/PoBCommunity", "Builds")
     assert controller.last_export_path == generated_paths[0]
