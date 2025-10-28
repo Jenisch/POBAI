@@ -44,35 +44,29 @@ def test_controller_protocol(monkeypatch: pytest.MonkeyPatch) -> None:
     def fake_open(url: str) -> None:
         calls.append(url)
 
-    def fake_share_url(payload: dict[str, object]) -> str:
-        payload["pobb_in_url"] = "https://pobb.in/abc123"
-        return t.cast(str, payload["pobb_in_url"])
-
     monkeypatch.setattr("webbrowser.open", fake_open)
-    monkeypatch.setattr("pob_build_planner.pob.build_to_pobb_in_url", fake_share_url)
     controller = PathOfBuildingController()
     code = controller.open_build(build)
-    assert calls and calls[0] == "pob://pobb.in/abc123"
+    assert calls and calls[0] == f"poe://build/{code}"
     assert code
     assert controller.last_export_path is None
 
 
-def test_controller_protocol_falls_back_to_share_url(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_controller_protocol_does_not_require_share_url(monkeypatch: pytest.MonkeyPatch) -> None:
     build = copy.deepcopy(BUILD_LIBRARY[0])
     calls: list[str] = []
 
     def fake_open(url: str) -> None:
         calls.append(url)
 
-    def fake_share_url(payload: dict[str, object]) -> str:
-        payload["pobb_in_url"] = "https://pobb.in/#code:abc"
-        return t.cast(str, payload["pobb_in_url"])
+    def blow_up(*_args, **_kwargs):
+        raise AssertionError("build_to_pobb_in_url should not be called")
 
     monkeypatch.setattr("webbrowser.open", fake_open)
-    monkeypatch.setattr("pob_build_planner.pob.build_to_pobb_in_url", fake_share_url)
+    monkeypatch.setattr("pob_build_planner.pob.build_to_pobb_in_url", blow_up)
     controller = PathOfBuildingController()
-    controller.open_build(build)
-    assert calls == ["https://pobb.in/#code:abc"]
+    code = controller.open_build(build)
+    assert calls == [f"poe://build/{code}"]
 
 
 def test_build_to_xml_contains_skill_info() -> None:
@@ -201,10 +195,6 @@ def test_controller_file_mode_permission_error(monkeypatch: pytest.MonkeyPatch) 
 
     monkeypatch.setattr("tempfile.NamedTemporaryFile", lambda *a, **k: DummyTemp())
 
-    def fake_share_url(payload: dict[str, object]) -> str:
-        payload["pobb_in_url"] = "https://pobb.in/abc123"
-        return t.cast(str, payload["pobb_in_url"])
-
     launched: list[list[str]] = []
     opened: list[str] = []
 
@@ -213,7 +203,6 @@ def test_controller_file_mode_permission_error(monkeypatch: pytest.MonkeyPatch) 
         raise PermissionError("no access")
 
     monkeypatch.setattr("subprocess.Popen", boom)
-    monkeypatch.setattr("pob_build_planner.pob.build_to_pobb_in_url", fake_share_url)
     monkeypatch.setattr("webbrowser.open", lambda url: opened.append(url))
 
     controller = PathOfBuildingController(executable_path="PathOfBuilding.exe", open_mode="file")
@@ -223,7 +212,8 @@ def test_controller_file_mode_permission_error(monkeypatch: pytest.MonkeyPatch) 
 
     assert controller.last_export_path == "temp.xml"
     assert launched and launched[0] == ["PathOfBuilding.exe", "temp.xml"]
-    assert opened and opened[0] == "pob://pobb.in/abc123"
+    expected_code = build_to_code(build)
+    assert opened and opened[0] == f"poe://build/{expected_code}"
 
 
 def test_controller_accepts_directory_path(monkeypatch: pytest.MonkeyPatch) -> None:

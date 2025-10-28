@@ -274,27 +274,6 @@ def build_to_pobb_in_url(build: Build) -> str:
     return share_url
 
 
-def _share_url_to_protocol(url: str | None) -> str | None:
-    """Convert a pobb.in share URL into a PoB protocol handler URI."""
-
-    if not url:
-        return None
-
-    parsed = urllib.parse.urlparse(url)
-    if parsed.scheme not in {"http", "https"}:
-        return None
-    if parsed.netloc.lower() != "pobb.in":
-        return None
-
-    slug = parsed.path.strip("/")
-    if not slug:
-        return None
-    slug = slug.split("/")[0]
-    if not slug:
-        return None
-    return f"pob://pobb.in/{slug}"
-
-
 WINDOWS_DEFAULT_EXECUTABLE = "Path of Building Community.exe"
 
 
@@ -403,19 +382,8 @@ class PathOfBuildingController:
             if use_cache:
                 build["pob_code"] = code
 
-        share_url: str | None = None
-        protocol_url: str | None = None
-        if self.open_mode in {"protocol", "file"}:
-            share_url = build_to_pobb_in_url(build)
-            protocol_url = _share_url_to_protocol(share_url)
-
         if self.open_mode == "protocol":
-            if protocol_url:
-                webbrowser.open(protocol_url)
-            elif share_url:
-                webbrowser.open(share_url)
-            else:
-                webbrowser.open(f"poe://build/{code}")
+            webbrowser.open(f"poe://build/{code}")
         elif self.open_mode == "file":
             resolved_executable = self._resolve_executable()
             export_dir: str | None = None
@@ -431,23 +399,13 @@ class PathOfBuildingController:
                     args = [resolved_executable, temp_path]
                     subprocess.Popen(args)
                 except OSError as exc:  # pragma: no cover - exercised via tests
-                    if protocol_url:
-                        webbrowser.open(protocol_url)
-                    elif share_url:
-                        webbrowser.open(share_url)
-                    else:
-                        webbrowser.open(f"file://{temp_path}")
+                    webbrowser.open(f"poe://build/{code}")
                     raise PathOfBuildingLaunchError(
                         "Failed to launch Path of Building using the provided executable "
                         f"'{resolved_executable}': {exc}"
                     ) from exc
             else:
-                if protocol_url:
-                    webbrowser.open(protocol_url)
-                elif share_url:
-                    webbrowser.open(share_url)
-                else:
-                    webbrowser.open(f"file://{temp_path}")
+                webbrowser.open(f"poe://build/{code}")
         else:
             raise ValueError(f"Unknown open mode '{self.open_mode}'")
 

@@ -148,14 +148,15 @@ CLI with `--open-build` and skip the recommendation phase entirely:
 python -m pob_build_planner.cli --open-build toxic_rain_pathfinder
 ```
 
-The CLI uploads generated or curated builds to pobb.in and uses the
-`pob://pobb.in/<slug>` protocol handler by default so Path of Building opens the
-recommendation directly. When pobb.in cannot be reached the planner falls back
-to opening the share URL in your default browser. On systems where the protocol
-is not registered or if you prefer the desktop executable directly, switch the
-launch mode to `file` and optionally supply the path to
-`PathOfBuilding.exe` (or the installation directory—the planner will look for
-`Path of Building Community.exe` automatically):
+The CLI now opens builds through the native `poe://build/<code>` protocol so the
+Path of Building client imports the profile immediately without relying on
+pobb.in. Share links are still generated for convenience and printed in the
+terminal output, but launching the client no longer requires an active
+connection to pobb.in. If the protocol handler is not registered or you prefer
+to hand the desktop executable the exported XML directly, switch the launch mode
+to `file` and optionally supply the path to `PathOfBuilding.exe` (or the
+installation directory—the planner will look for `Path of Building Community.exe`
+automatically):
 
 ```bash
 python -m pob_build_planner.cli --open --open-mode file \
@@ -186,11 +187,10 @@ If double-clicking the CLI shortcut closes immediately, use the bundled
 
 The script keeps the console window open after running so you can review any
 errors instead of the window closing immediately. It automatically runs the CLI
-in `file` launch mode, uploads the selected build to pobb.in, and passes the
-`pob://pobb.in/<slug>` URI to the Path of Building executable. When Windows
-blocks the launcher from invoking `PathOfBuilding.exe`, the planner now reports
-the precise error, prints the import code, and shows the pobb.in link so you can
-paste it manually.
+in `file` launch mode and will fall back to issuing a `poe://build/<code>` import
+if Windows blocks the direct executable launch. When that happens the planner
+also prints the raw import code and the pobb.in share link so you can paste
+either value manually.
 
 ## Tests
 
