@@ -3,9 +3,11 @@
 This script searches for an installed Path of Building Community directory, detects the
 highest available passive tree version for Path of Exile 1, and generates a minimal
 XML build containing two allocated passive nodes. The XML is compressed via raw zlib
-(DEFLATE) and base64-encoded. The script prints the encoded string and saves the XML
-as a fallback file for manual import. A round-trip validation ensures the generated
-code decodes back into a valid PoB XML document.
+(DEFLATE) and base64-encoded. The script prints the encoded string, saves the XML as a
+fallback file for manual import, and appends the tail of the PoB log for diagnostics.
+A round-trip validation ensures the generated code decodes back into a valid PoB XML
+document. Additionally, the script ensures the PoB settings target Path of Exile 1
+before generating the build.
 """
 from __future__ import annotations
 
@@ -22,6 +24,46 @@ import xml.etree.ElementTree as ET
 
 FALLBACK_VERSIONS: Sequence[str] = ("3_26", "3_25", "3_24", "3_23")
 NODE_IDS: Sequence[str] = ("40479", "29534")
+SETTINGS_RELATIVE_PATH = Path("Path of Building Community") / "Settings.xml"
+LOGS_RELATIVE_PATH = Path("Path of Building Community") / "Logs"
+
+
+def ensure_poe1_settings() -> None:
+    """Update the PoB settings file to target Path of Exile 1 if necessary."""
+
+    appdata = os.environ.get("APPDATA")
+    if not appdata:
+        return
+
+    settings_path = Path(appdata) / SETTINGS_RELATIVE_PATH
+    if not settings_path.is_file():
+        return
+
+    try:
+        content = settings_path.read_text(encoding="utf-8")
+    except OSError:
+        return
+
+    lower = content.lower()
+    if "poe2" not in lower and "path of exile 2" not in lower and "pathofexile2" not in lower:
+        return
+
+    modified = content
+    replacements = [
+        (r"(?i)path\s*of\s*exile\s*2", "Path of Exile"),
+        (r"(?i)pathofexile2", "PathOfExile"),
+        (r"(?i)poe2", "PoE"),
+        (r"gameMode\s*=\s*\"?2\"?", 'gameMode="1"'),
+        (r"gameVersion\s*=\s*\"?2\"?", 'gameVersion="1"'),
+    ]
+    for pattern, replacement in replacements:
+        modified = re.sub(pattern, replacement, modified)
+
+    if modified != content:
+        try:
+            settings_path.write_text(modified, encoding="utf-8")
+        except OSError:
+            pass
 
 
 def candidate_directories(script_path: Path) -> List[Path]:
@@ -42,11 +84,14 @@ def candidate_directories(script_path: Path) -> List[Path]:
     program_files = os.environ.get("PROGRAMFILES", r"C:\\Program Files")
     program_files_x86 = os.environ.get("PROGRAMFILES(X86)", r"C:\\Program Files (x86)")
     local_appdata = os.environ.get("LOCALAPPDATA")
+    appdata = os.environ.get("APPDATA")
 
     add(Path(program_files) / "Path of Building Community")
     add(Path(program_files_x86) / "Path of Building Community")
     if local_appdata:
         add(Path(local_appdata) / "Programs" / "Path of Building Community")
+    if appdata:
+        add(Path(appdata) / "Path of Building Community")
 
     # Search for sibling folders matching the pattern under C:\ and %LOCALAPPDATA%\Programs
     search_roots: List[Path] = [Path(r"C:\\")]
@@ -73,9 +118,16 @@ def candidate_directories(script_path: Path) -> List[Path]:
 
 
 def extract_versions_from_text(text: str) -> List[str]:
-    """Extract version strings that look like '3_24'."""
+    """Extract PoE1 version strings that look like '3_24'."""
 
-    return sorted(set(re.findall(r"\b\d+_\d+\b", text)))
+    versions = set()
+    for match in re.finditer(r"\b\d+_\d+\b", text):
+        start, end = match.span()
+        window = text[max(0, start - 40): end + 40].lower()
+        if any(token in window for token in ("poe2", "poe 2", "pathofexile2", "path of exile 2")):
+            continue
+        versions.add(match.group())
+    return sorted(versions)
 
 
 def parse_tree_data_json(path: Path) -> List[str]:
@@ -139,6 +191,22 @@ def discover_tree_versions(pob_dir: Path) -> List[str]:
     return unique_versions
 
 
+def version_exists_in_dir(pob_dir: Path, version: str) -> bool:
+    data_dir = pob_dir / "Data"
+    if not data_dir.is_dir():
+        return False
+
+    for extension in ("*.json", "*.lua"):
+        for path in data_dir.rglob(extension):
+            try:
+                text = path.read_text(encoding="utf-8", errors="ignore")
+            except OSError:
+                continue
+            if version in extract_versions_from_text(text):
+                return True
+    return False
+
+
 def choose_version(detected_versions: Sequence[str]) -> str:
     def version_key(version: str) -> Tuple[int, int]:
         major, minor = version.split("_")
@@ -146,11 +214,17 @@ def choose_version(detected_versions: Sequence[str]) -> str:
 
     if detected_versions:
         return max(detected_versions, key=version_key)
+    return FALLBACK_VERSIONS[0]
 
-    # Fallback search; return the first known fallback detected, otherwise the first entry
+
+def choose_version_with_fallback(dirs: Sequence[Path], detected_versions: Sequence[str]) -> str:
+    if detected_versions:
+        return choose_version(detected_versions)
+
     for version in FALLBACK_VERSIONS:
-        if version in detected_versions:
-            return version
+        for pob_dir in dirs:
+            if version_exists_in_dir(pob_dir, version):
+                return version
     return FALLBACK_VERSIONS[0]
 
 
@@ -197,7 +271,26 @@ def save_fallback(xml_text: str) -> Path:
     return fallback_path
 
 
+def read_log_tail(lines: int = 200) -> List[str]:
+    appdata = os.environ.get("APPDATA")
+    if not appdata:
+        return []
+
+    logs_dir = Path(appdata) / LOGS_RELATIVE_PATH
+    candidates = [logs_dir / "App.log", logs_dir / "log.txt"]
+    for path in candidates:
+        if path.is_file():
+            try:
+                content = path.read_text(encoding="utf-8", errors="ignore").splitlines()
+            except OSError:
+                continue
+            return content[-lines:]
+    return []
+
+
 def main() -> int:
+    ensure_poe1_settings()
+
     script_path = Path(__file__).resolve()
     dirs = candidate_directories(script_path)
 
@@ -207,7 +300,7 @@ def main() -> int:
         if versions:
             detected_versions.extend(versions)
 
-    version = choose_version(detected_versions)
+    version = choose_version_with_fallback(dirs, detected_versions)
     xml_text = build_xml(version)
     code = encode_xml(xml_text)
     validated_xml = validate_code(code)
@@ -216,6 +309,11 @@ def main() -> int:
     # Output: base64 code line, followed by fallback path line
     sys.stdout.write(code + "\n")
     sys.stdout.write(f"FALLBACK_XML:{fallback_path}\n")
+    log_tail = read_log_tail()
+    sys.stdout.write("LOG_TAIL_START\n")
+    for line in log_tail:
+        sys.stdout.write(f"{line}\n")
+    sys.stdout.write("LOG_TAIL_END\n")
     return 0
 
 
