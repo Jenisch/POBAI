@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from typing import Any, Dict, List, Optional, Sequence
 
 from .data import BUILD_LIBRARY
@@ -15,7 +16,32 @@ from .planner import (
     recommend_builds_by_skill,
     recommend_dual_phase_builds,
 )
-from .pob import PathOfBuildingController
+from .pob import PathOfBuildingController, PathOfBuildingLaunchError
+
+
+def _stdin_is_interactive() -> bool:
+    try:
+        return sys.stdin.isatty()
+    except Exception:  # pragma: no cover - defensive guard
+        return False
+
+
+def _prompt_for_skill(args: argparse.Namespace) -> Optional[str]:
+    """Return a skill gem supplied by the user when running interactively."""
+
+    if args.skill or args.describe or args.config or args.open_build or args.dual_phase:
+        return None
+    if not _stdin_is_interactive():
+        return None
+    try:
+        response = input("What do you want to play? ")
+    except EOFError:
+        return None
+    skill = response.strip()
+    if skill:
+        print(f"\nSearching for builds that feature '{skill}'.")
+        return skill
+    return None
 
 
 def parse_bool(value: Optional[str]) -> Optional[bool]:
@@ -177,6 +203,10 @@ def merge_config(args: argparse.Namespace) -> PlaystylePreferences:
 def run_cli(argv: Optional[List[str]] = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    prompted_skill = _prompt_for_skill(args)
+    if prompted_skill:
+        args.skill = prompted_skill
+
     controller = PathOfBuildingController(
         executable_path=args.pob_executable,
         open_mode=args.open_mode,
@@ -193,8 +223,14 @@ def run_cli(argv: Optional[List[str]] = None) -> int:
         if not recommendation:
             print(f"No build found with id '{args.open_build}'.")
             return 1
-        code = controller.open_build(recommendation.build)
-        print(f"Opened build in Path of Building. Import code: {code}")
+        try:
+            code = controller.open_build(recommendation.build)
+            print(f"Opened build in Path of Building. Import code: {code}")
+        except PathOfBuildingLaunchError as exc:
+            print(str(exc))
+            code = recommendation.pob_code()
+            print(f"Import code: {code}")
+            print("Unable to open Path of Building automatically, but the build code is available above.")
         return 0
 
     def present_recommendations(recommendations: List[Any]) -> None:
@@ -208,8 +244,16 @@ def run_cli(argv: Optional[List[str]] = None) -> int:
                 if idx != len(recommendations):
                     print("\n")
         if args.open and recommendations:
-            code = controller.open_build(recommendations[0].build)
-            print(f"\nOpened top recommendation in Path of Building. Import code: {code}")
+            try:
+                code = controller.open_build(recommendations[0].build)
+                print(f"\nOpened top recommendation in Path of Building. Import code: {code}")
+            except PathOfBuildingLaunchError as exc:
+                print(str(exc))
+                code = recommendations[0].pob_code()
+                print(f"Import code: {code}")
+                print(
+                    "Unable to open Path of Building automatically. Use the import code above to open the build manually."
+                )
 
     if args.skill:
         skill_recs = recommend_builds_by_skill(args.skill, top_n=args.top, library=library)
@@ -228,22 +272,38 @@ def run_cli(argv: Optional[List[str]] = None) -> int:
             print(plan.to_report())
         if args.open:
             opened = False
+            launch_failed = False
             if plan.league_start:
-                code = controller.open_build(plan.league_start.build)
-                print(
-                    "\nOpened league start recommendation in Path of Building. Import code: "
-                    f"{code}"
-                )
-                opened = True
+                try:
+                    code = controller.open_build(plan.league_start.build)
+                    print(
+                        "\nOpened league start recommendation in Path of Building. Import code: "
+                        f"{code}"
+                    )
+                    opened = True
+                except PathOfBuildingLaunchError as exc:
+                    print(str(exc))
+                    print(f"League start import code: {plan.league_start.pob_code()}")
+                    launch_failed = True
             if plan.endgame:
-                code = controller.open_build(plan.endgame.build)
-                print(
-                    "Opened endgame recommendation in Path of Building. Import code: "
-                    f"{code}"
-                )
-                opened = True
+                try:
+                    code = controller.open_build(plan.endgame.build)
+                    print(
+                        "Opened endgame recommendation in Path of Building. Import code: "
+                        f"{code}"
+                    )
+                    opened = True
+                except PathOfBuildingLaunchError as exc:
+                    print(str(exc))
+                    print(f"Endgame import code: {plan.endgame.pob_code()}")
+                    launch_failed = True
             if not opened:
-                print("No builds were opened because no recommendations were available.")
+                if launch_failed:
+                    print(
+                        "Unable to launch Path of Building automatically. Use the import codes above to open the builds manually."
+                    )
+                else:
+                    print("No builds were opened because no recommendations were available.")
         return 0
 
     recommendations = recommend_builds(preferences, top_n=args.top, library=library)

@@ -11,12 +11,8 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from pob_build_planner.data import BUILD_LIBRARY
-from pob_build_planner.pob import (
-    PathOfBuildingController,
-    build_to_code,
-    build_to_pobb_in_url,
-    build_to_xml,
-)
+from pob_build_planner.pob import PathOfBuildingController, PathOfBuildingLaunchError
+from pob_build_planner.pob import build_to_code, build_to_pobb_in_url, build_to_xml
 
 
 def test_build_to_code_round_trip() -> None:
@@ -54,3 +50,32 @@ def test_build_to_pobb_in_url_returns_share_link() -> None:
     url = build_to_pobb_in_url(build)
     assert url.startswith("https://pobb.in/")
     assert len(url.split("/")) >= 4  # ensures a code is appended
+
+
+def test_controller_file_mode_permission_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    build = BUILD_LIBRARY[0]
+
+    class DummyTemp:
+        def __init__(self):
+            self.name = "temp.xml"
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def write(self, *_args, **_kwargs):
+            return None
+
+    monkeypatch.setattr("tempfile.NamedTemporaryFile", lambda *a, **k: DummyTemp())
+
+    def boom(_args):
+        raise PermissionError("no access")
+
+    monkeypatch.setattr("subprocess.Popen", boom)
+
+    controller = PathOfBuildingController(executable_path="PathOfBuilding.exe", open_mode="file")
+
+    with pytest.raises(PathOfBuildingLaunchError):
+        controller.open_build(build)

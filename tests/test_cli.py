@@ -1,0 +1,99 @@
+import os
+import sys
+from types import SimpleNamespace
+
+import pytest
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+from pob_build_planner import cli
+from pob_build_planner.data import BUILD_LIBRARY
+
+
+class DummyRecommendation:
+    def __init__(self, build):
+        self.build = build
+        self._build = build
+
+    def to_payload(self):
+        return {"id": self.build.get("id")}
+
+    def to_report(self):
+        return "dummy report"
+
+    def pob_code(self):
+        from pob_build_planner.pob import build_to_code
+
+        return build_to_code(self.build)
+
+
+class DummyPlan:
+    def __init__(self, build):
+        self.league_start = DummyRecommendation(build)
+        self.endgame = None
+
+    def to_payload(self):
+        return {"league_start": self.league_start.to_payload(), "endgame": None}
+
+    def to_report(self):
+        return "plan"
+
+
+def test_prompt_for_skill(monkeypatch, capsys):
+    args = SimpleNamespace(
+        skill=None,
+        describe=None,
+        config=None,
+        open_build=None,
+        dual_phase=False,
+    )
+    monkeypatch.setattr(cli, "_stdin_is_interactive", lambda: True)
+    monkeypatch.setattr("builtins.input", lambda _: "Cyclone")
+    skill = cli._prompt_for_skill(args)
+    assert skill == "Cyclone"
+    captured = capsys.readouterr()
+    assert "Cyclone" in captured.out
+
+
+def test_run_cli_interactive_skill(monkeypatch, capsys):
+    calls = {}
+
+    def fake_recommend(skill, top_n, library):
+        calls["skill"] = skill
+        return [DummyRecommendation(BUILD_LIBRARY[0])]
+
+    monkeypatch.setattr(cli, "recommend_builds_by_skill", fake_recommend)
+    monkeypatch.setattr(cli, "_stdin_is_interactive", lambda: True)
+    monkeypatch.setattr("builtins.input", lambda _: "Cyclone")
+
+    exit_code = cli.run_cli([])
+    assert exit_code == 0
+    assert calls["skill"] == "Cyclone"
+    captured = capsys.readouterr()
+    assert "Cyclone" in captured.out
+
+
+def test_run_cli_open_build_launch_error(monkeypatch, capsys):
+    build = BUILD_LIBRARY[0]
+
+    def fake_get_build(build_id, library):
+        return DummyRecommendation(build)
+
+    class FakeController:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def open_build(self, _build):
+            from pob_build_planner.pob import PathOfBuildingLaunchError
+
+            raise PathOfBuildingLaunchError("boom")
+
+    monkeypatch.setattr(cli, "get_build_by_id", fake_get_build)
+    monkeypatch.setattr(cli, "PathOfBuildingController", FakeController)
+    monkeypatch.setattr(cli, "load_external_builds", lambda **_: [])
+
+    exit_code = cli.run_cli(["--open-build", build["id"]])
+    assert exit_code == 0
+    captured = capsys.readouterr()
+    assert "boom" in captured.out
+    assert "Import code" in captured.out

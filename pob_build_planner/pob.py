@@ -10,8 +10,8 @@ directly.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import base64
+from dataclasses import dataclass
 import subprocess
 import tempfile
 import typing as t
@@ -167,7 +167,13 @@ class PathOfBuildingController:
                 handle.write(xml_payload)
                 temp_path = handle.name
             if self.executable_path:
-                subprocess.Popen([self.executable_path, temp_path])
+                try:
+                    subprocess.Popen([self.executable_path, temp_path])
+                except OSError as exc:  # pragma: no cover - exercised via tests
+                    raise PathOfBuildingLaunchError(
+                        "Failed to launch Path of Building using the provided executable "
+                        f"'{self.executable_path}': {exc}"
+                    ) from exc
             else:
                 webbrowser.open(f"file://{temp_path}")
         else:
@@ -181,5 +187,10 @@ __all__ = [
     "build_to_code",
     "build_to_pobb_in_url",
     "PathOfBuildingController",
+    "PathOfBuildingLaunchError",
 ]
+
+class PathOfBuildingLaunchError(RuntimeError):
+    """Raised when the planner fails to launch the Path of Building client."""
+
 

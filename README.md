@@ -60,6 +60,15 @@ For machine-readable output, add `--json` to emit the recommendations as JSON.
 Each entry contains the matched tags, PoB import code, and a shareable
 `https://pobb.in/<code>` link.
 
+### Conversational prompts
+
+Launching the CLI without any filters now starts with a simple question: "What do
+you want to play?". Type the skill gem you have in mind (for example
+`Kinetic Blast`) and the planner will automatically switch into skill-focused
+matching, returning ready-to-import PoB codes and pobb.in links. This behaviour
+is enabled both when running the CLI directly and when using the Windows batch
+launcher.
+
 ### Quick skill gem lookup
 
 When you already know the active skill you want to play, supply it directly via
@@ -152,7 +161,9 @@ If double-clicking the CLI shortcut closes immediately, use the bundled
 The script keeps the console window open after running so you can review any
 errors instead of the window closing immediately. It automatically falls back to
 the `file` launch mode and points Path of Building at a temporary XML profile,
-avoiding issues with unregistered `poe://` handlers on Windows.
+avoiding issues with unregistered `poe://` handlers on Windows. When Windows
+blocks the launcher from invoking `PathOfBuilding.exe`, the planner now reports
+the precise error and prints the import code so you can paste it manually.
 
 ## Tests
 

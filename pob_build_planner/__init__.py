@@ -11,7 +11,13 @@ from .planner import (
     recommend_builds,
     recommend_dual_phase_builds,
 )
-from .pob import PathOfBuildingController, build_to_code, build_to_pobb_in_url, build_to_xml
+from .pob import (
+    PathOfBuildingController,
+    PathOfBuildingLaunchError,
+    build_to_code,
+    build_to_pobb_in_url,
+    build_to_xml,
+)
 
 __all__ = [
     "PlaystylePreferences",
@@ -27,6 +33,7 @@ __all__ = [
     "build_to_code",
     "build_to_pobb_in_url",
     "PathOfBuildingController",
+    "PathOfBuildingLaunchError",
     "load_external_builds",
     "load_path_of_building_builds",
     "load_poedb_metadata",
