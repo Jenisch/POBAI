@@ -1,4 +1,5 @@
 """Path of Building build planner package."""
+from .integrations import load_external_builds, load_path_of_building_builds, load_poedb_metadata
 from .planner import (
     BuildRecommendation,
     DualPhasePlan,
@@ -26,4 +27,7 @@ __all__ = [
     "build_to_code",
     "build_to_pobb_in_url",
     "PathOfBuildingController",
+    "load_external_builds",
+    "load_path_of_building_builds",
+    "load_poedb_metadata",
 ]

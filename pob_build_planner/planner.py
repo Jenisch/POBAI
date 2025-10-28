@@ -246,11 +246,16 @@ def _score_build_for_skill(skill: str, build: Build) -> Tuple[int, List[str]]:
     return score, matches
 
 
-def recommend_builds_by_skill(skill: str, top_n: int = 3) -> List[BuildRecommendation]:
+def recommend_builds_by_skill(
+    skill: str,
+    top_n: int = 3,
+    *,
+    library: Sequence[Build] = BUILD_LIBRARY,
+) -> List[BuildRecommendation]:
     """Return builds that prominently feature the requested skill gem."""
 
     recommendations: List[BuildRecommendation] = []
-    for build in BUILD_LIBRARY:
+    for build in library:
         score, matches = _score_build_for_skill(skill, build)
         if score <= 0:
             continue
@@ -424,10 +429,24 @@ def recommend_builds(
         if score >= min_score:
             scored.append(BuildRecommendation(build=build, score=score, matched_tags=matched))
     scored.sort(key=lambda rec: rec.score, reverse=True)
-    return scored[:top_n]
+    trimmed = scored[:top_n]
+    if trimmed:
+        return trimmed
+    if min_score > 0:
+        return recommend_builds(
+            preferences,
+            library=library,
+            top_n=top_n,
+            min_score=0,
+        )
+    return []
 
 
-def get_build_by_id(build_id: str, *, library: Sequence[Build] = BUILD_LIBRARY) -> Optional[BuildRecommendation]:
+def get_build_by_id(
+    build_id: str,
+    *,
+    library: Sequence[Build] = BUILD_LIBRARY,
+) -> Optional[BuildRecommendation]:
     build_id = build_id.strip().lower()
     for build in library:
         if build.get("id") == build_id:

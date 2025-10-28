@@ -88,6 +88,27 @@ non-league-start profiles so you have a plan for the final upgrades. Combine the
 `--json` or `--open` flags to consume the structured payload or launch both
 builds immediately.
 
+### Syncing with PoEDB and Path of Building
+
+If you keep a local checkout of the [PoEDB data](https://github.com/poedb) or the
+[Path of Building Community fork](https://github.com/PathOfBuildingCommunity/PathOfBuilding),
+the planner can merge those sources into its library automatically.
+
+```bash
+python -m pob_build_planner.cli --describe "poison bow" \
+  --poedb-path /path/to/poedb_export \
+  --path-of-building /path/to/PathOfBuilding
+```
+
+`--poedb-path` should point at a directory containing the JSON exports from PoEDB
+(any `ActiveSkillGem*.json` or `SkillGem*.json` files are detected). `--path-of-building`
+expects a git checkout of the community fork; the planner scans the bundled
+`spec/TestBuilds` XML files, converts them into its internal format, and enriches each
+build with the PoEDB metadata. The additional builds are merged with the curated
+library so subsequent invocations share the same expanded catalogue. When no builds
+meet the requested filters the planner now retries with a relaxed score threshold so
+you still receive a close match instead of an empty result.
+
 ### Opening builds in Path of Building
 
 Pass `--open` to automatically launch the top recommendation inside Path of

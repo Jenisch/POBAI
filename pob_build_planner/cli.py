@@ -3,8 +3,10 @@ from __future__ import annotations
 
 import argparse
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence
 
+from .data import BUILD_LIBRARY
+from .integrations import load_external_builds
 from .planner import (
     PlaystylePreferences,
     get_build_by_id,
@@ -121,6 +123,20 @@ def build_parser() -> argparse.ArgumentParser:
             " XML file and opens it with the Path of Building executable."
         ),
     )
+    parser.add_argument(
+        "--poedb-path",
+        help=(
+            "Path to a local checkout or export of the PoEDB data repository. "
+            "Skill metadata from this source is used to enrich Path of Building builds."
+        ),
+    )
+    parser.add_argument(
+        "--path-of-building",
+        help=(
+            "Path to a local checkout of the Path of Building Community git repository. "
+            "Test builds in the repo will be merged into the planner library."
+        ),
+    )
     return parser
 
 
@@ -166,8 +182,14 @@ def run_cli(argv: Optional[List[str]] = None) -> int:
         open_mode=args.open_mode,
     )
 
+    external_builds = load_external_builds(
+        poedb_path=args.poedb_path,
+        pob_path=args.path_of_building,
+    )
+    library: Sequence[Dict[str, object]] = list(BUILD_LIBRARY) + list(external_builds)
+
     if args.open_build:
-        recommendation = get_build_by_id(args.open_build)
+        recommendation = get_build_by_id(args.open_build, library=library)
         if not recommendation:
             print(f"No build found with id '{args.open_build}'.")
             return 1
@@ -190,7 +212,7 @@ def run_cli(argv: Optional[List[str]] = None) -> int:
             print(f"\nOpened top recommendation in Path of Building. Import code: {code}")
 
     if args.skill:
-        skill_recs = recommend_builds_by_skill(args.skill, top_n=args.top)
+        skill_recs = recommend_builds_by_skill(args.skill, top_n=args.top, library=library)
         if not skill_recs:
             print(f"No builds in the library use the skill '{args.skill}'.")
             return 1
@@ -199,7 +221,7 @@ def run_cli(argv: Optional[List[str]] = None) -> int:
 
     preferences = merge_config(args)
     if args.dual_phase:
-        plan = recommend_dual_phase_builds(preferences, top_n=args.top)
+        plan = recommend_dual_phase_builds(preferences, top_n=args.top, library=library)
         if args.json:
             print(json.dumps(plan.to_payload(), indent=2))
         else:
@@ -224,7 +246,7 @@ def run_cli(argv: Optional[List[str]] = None) -> int:
                 print("No builds were opened because no recommendations were available.")
         return 0
 
-    recommendations = recommend_builds(preferences, top_n=args.top)
+    recommendations = recommend_builds(preferences, top_n=args.top, library=library)
     if not recommendations:
         print("No builds matched the provided playstyle. Try relaxing your filters.")
         return 1
