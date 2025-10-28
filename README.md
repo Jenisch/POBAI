@@ -15,8 +15,9 @@ suggest curated Path of Building profiles tailored to your preferred playstyle.
 - Dual-phase planner that surfaces both a league-start-friendly pick and a
   high-ceiling endgame option.
 - One-shot integration that opens recommended builds directly inside Path of
-  Building (Path of Exile 1) using the registered `poe://` protocol or by
-  invoking the desktop executable.
+  Building (Path of Exile 1) by uploading to pobb.in and invoking the
+  registered `pob://` protocol handler, or by launching the desktop
+  executable.
 
 ## Getting Started
 
@@ -147,9 +148,12 @@ CLI with `--open-build` and skip the recommendation phase entirely:
 python -m pob_build_planner.cli --open-build toxic_rain_pathfinder
 ```
 
-The CLI uses the `poe://build/<code>` URI handler by default. On systems where
-the protocol is not registered or if you prefer the desktop executable directly,
-switch the launch mode to `file` and optionally supply the path to
+The CLI uploads generated or curated builds to pobb.in and uses the
+`pob://pobb.in/<slug>` protocol handler by default so Path of Building opens the
+recommendation directly. When pobb.in cannot be reached the planner falls back
+to opening the share URL in your default browser. On systems where the protocol
+is not registered or if you prefer the desktop executable directly, switch the
+launch mode to `file` and optionally supply the path to
 `PathOfBuilding.exe` (or the installation directory—the planner will look for
 `Path of Building Community.exe` automatically):
 
@@ -181,11 +185,12 @@ If double-clicking the CLI shortcut closes immediately, use the bundled
 5. Choose whether to open the top recommendation or a specific build id.
 
 The script keeps the console window open after running so you can review any
-errors instead of the window closing immediately. It automatically falls back to
-the `file` launch mode and points Path of Building at a temporary XML profile,
-avoiding issues with unregistered `poe://` handlers on Windows. When Windows
+errors instead of the window closing immediately. It automatically runs the CLI
+in `file` launch mode, uploads the selected build to pobb.in, and passes the
+`pob://pobb.in/<slug>` URI to the Path of Building executable. When Windows
 blocks the launcher from invoking `PathOfBuilding.exe`, the planner now reports
-the precise error and prints the import code so you can paste it manually.
+the precise error, prints the import code, and shows the pobb.in link so you can
+paste it manually.
 
 ## Tests
 
