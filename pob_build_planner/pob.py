@@ -167,7 +167,7 @@ def build_to_xml(build: Build, *, target_version: str = TARGET_VERSION) -> str:
             item = ET.SubElement(items_elem, "Item", slot=slot.title())
             item.text = description
 
-    xml_bytes = ET.tostring(root, encoding="utf-8")
+    xml_bytes = ET.tostring(root, encoding="utf-8", xml_declaration=True)
     return xml_bytes.decode("utf-8")
 
 
@@ -215,7 +215,7 @@ def build_to_pobb_in_url(build: Build) -> str:
         else:
             raise ValueError("Missing pobb.in share identifier")
     except (OSError, ValueError, json.JSONDecodeError, urllib.error.URLError):
-        share_url = f"{POBB_IN_BASE_URL}{code}"
+        share_url = f"{POBB_IN_BASE_URL}#code:{code}"
 
     if share_url:
         build["pobb_in_url"] = share_url

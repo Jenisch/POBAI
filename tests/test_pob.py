@@ -102,6 +102,19 @@ def test_build_to_pobb_in_url_returns_share_link(monkeypatch: pytest.MonkeyPatch
     assert url == "https://pobb.in/abc123"
 
 
+def test_build_to_pobb_in_url_falls_back_to_embedded_code(monkeypatch: pytest.MonkeyPatch) -> None:
+    build = copy.deepcopy(BUILD_LIBRARY[0])
+    build.pop("pobb_in_url", None)
+
+    def boom(*_args, **_kwargs):
+        raise urllib.error.URLError("nope")
+
+    monkeypatch.setattr(urllib.request, "urlopen", boom)
+
+    url = build_to_pobb_in_url(build)
+    assert url.startswith("https://pobb.in/#code:")
+
+
 def test_controller_file_mode_permission_error(monkeypatch: pytest.MonkeyPatch) -> None:
     build = BUILD_LIBRARY[0]
 

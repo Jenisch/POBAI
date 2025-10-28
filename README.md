@@ -58,14 +58,17 @@ python -m pob_build_planner.cli --config my_playstyle.json --top 1
 
 For machine-readable output, add `--json` to emit the recommendations as JSON.
 Each entry contains the matched tags, PoB import code, and a shareable
-`https://pobb.in/<code>` link.
+`https://pobb.in/<slug>` link. When pobb.in is unavailable the planner falls back
+to embedding the import code directly in the URL fragment so you can still open
+the build by visiting `https://pobb.in/#code:<import-code>`.
 
 ### Conversational prompts
 
 Launching the CLI without any filters now starts with a simple question: "What do
 you want to play?". Type the skill gem you have in mind (for example
 `Kinetic Blast`) and the planner will automatically switch into skill-focused
-matching, returning ready-to-import PoB codes and pobb.in links. This behaviour
+matching, returning ready-to-import PoB codes and pobb.in links (or embedded
+fallback URLs when pobb.in cannot be reached). This behaviour
 is enabled both when running the CLI directly and when using the Windows batch
 launcher.
 
@@ -73,7 +76,8 @@ launcher.
 
 When you already know the active skill you want to play, supply it directly via
 `--skill`. The planner will surface builds from the curated library that use the
-gem in their main setup and emit ready-to-import PoB codes and pobb.in links:
+gem in their main setup and emit ready-to-import PoB codes and pobb.in links (or
+embedded fallbacks when necessary):
 
 ```bash
 python -m pob_build_planner.cli --skill "Cyclone" --open
@@ -84,7 +88,8 @@ single skill idea to a ready-to-import Path of Building profile. When none of
 the curated or synced libraries include your requested gem, the planner now
 generates a fresh Path of Building configuration on the fly using PoEDB
 metadata to choose the ascendancy, support gems, gear direction, and defensive
-layers before emitting the import code and pobb.in link. The generated builds
+layers before emitting the import code and pobb.in link (falling back to an
+embedded URL fragment if the upload fails). The generated builds
 are hydrated with the Path of Building Community sample trees and items so the
 client opens to a complete baseline rather than an empty profile.
 
