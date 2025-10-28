@@ -1,4 +1,5 @@
 """Path of Building build planner package."""
+from .generator import generate_build_for_skill
 from .integrations import load_external_builds, load_path_of_building_builds, load_poedb_metadata
 from .planner import (
     BuildRecommendation,
@@ -34,6 +35,7 @@ __all__ = [
     "build_to_pobb_in_url",
     "PathOfBuildingController",
     "PathOfBuildingLaunchError",
+    "generate_build_for_skill",
     "load_external_builds",
     "load_path_of_building_builds",
     "load_poedb_metadata",

@@ -80,7 +80,11 @@ python -m pob_build_planner.cli --skill "Cyclone" --open
 ```
 
 This bypasses the broader preference scoring so you can jump straight from a
-single skill idea to a ready-to-import Path of Building profile.
+single skill idea to a ready-to-import Path of Building profile. When none of
+the curated or synced libraries include your requested gem, the planner now
+generates a fresh Path of Building configuration on the fly using PoEDB
+metadata to choose the ascendancy, support gems, gear direction, and defensive
+layers before emitting the import code and pobb.in link.
 
 ### Dual-phase planning
 
@@ -116,7 +120,9 @@ expects a git checkout of the community fork; the planner scans the bundled
 build with the PoEDB metadata. The additional builds are merged with the curated
 library so subsequent invocations share the same expanded catalogue. When no builds
 meet the requested filters the planner now retries with a relaxed score threshold so
-you still receive a close match instead of an empty result.
+you still receive a close match instead of an empty result. If your requested skill
+is still missing, the CLI will assemble a brand-new build tailored to that gem and
+print the PoB import code alongside a pobb.in link.
 
 ### Opening builds in Path of Building
 

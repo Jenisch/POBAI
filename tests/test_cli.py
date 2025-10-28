@@ -62,6 +62,8 @@ def test_run_cli_interactive_skill(monkeypatch, capsys):
         calls["skill"] = skill
         return [DummyRecommendation(BUILD_LIBRARY[0])]
 
+    monkeypatch.setattr(cli, "load_poedb_metadata", lambda _: {})
+    monkeypatch.setattr(cli, "load_path_of_building_builds", lambda *_args, **_kwargs: [])
     monkeypatch.setattr(cli, "recommend_builds_by_skill", fake_recommend)
     monkeypatch.setattr(cli, "_stdin_is_interactive", lambda: True)
     monkeypatch.setattr("builtins.input", lambda _: "Cyclone")
@@ -88,12 +90,33 @@ def test_run_cli_open_build_launch_error(monkeypatch, capsys):
 
             raise PathOfBuildingLaunchError("boom")
 
+    monkeypatch.setattr(cli, "load_poedb_metadata", lambda _: {})
+    monkeypatch.setattr(cli, "load_path_of_building_builds", lambda *_args, **_kwargs: [])
     monkeypatch.setattr(cli, "get_build_by_id", fake_get_build)
     monkeypatch.setattr(cli, "PathOfBuildingController", FakeController)
-    monkeypatch.setattr(cli, "load_external_builds", lambda **_: [])
 
     exit_code = cli.run_cli(["--open-build", build["id"]])
     assert exit_code == 0
     captured = capsys.readouterr()
     assert "boom" in captured.out
     assert "Import code" in captured.out
+
+
+def test_generate_skill_fallback(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "load_poedb_metadata", lambda _: {
+        "kineticblast": {
+            "skill_tags": ["attack", "projectile", "wand"],
+            "damage_source": "attack",
+            "damage_type": "elemental",
+            "combat_range": "ranged",
+        }
+    })
+    monkeypatch.setattr(cli, "load_path_of_building_builds", lambda *_args, **_kwargs: [])
+    monkeypatch.setattr(cli, "_stdin_is_interactive", lambda: False)
+    monkeypatch.setattr(cli, "recommend_builds_by_skill", lambda *args, **kwargs: [])
+
+    exit_code = cli.run_cli(["--skill", "Kinetic Blast"])
+    assert exit_code == 0
+    captured = capsys.readouterr()
+    assert "Generating a fresh Path of Building plan from scratch" in captured.out
+    assert "Kinetic Blast Deadeye" in captured.out

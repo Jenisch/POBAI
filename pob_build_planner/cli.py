@@ -7,8 +7,10 @@ import sys
 from typing import Any, Dict, List, Optional, Sequence
 
 from .data import BUILD_LIBRARY
-from .integrations import load_external_builds
+from .generator import generate_build_for_skill
+from .integrations import load_path_of_building_builds, load_poedb_metadata
 from .planner import (
+    BuildRecommendation,
     PlaystylePreferences,
     get_build_by_id,
     parse_freeform_preferences,
@@ -212,9 +214,9 @@ def run_cli(argv: Optional[List[str]] = None) -> int:
         open_mode=args.open_mode,
     )
 
-    external_builds = load_external_builds(
-        poedb_path=args.poedb_path,
-        pob_path=args.path_of_building,
+    poedb_metadata = load_poedb_metadata(args.poedb_path)
+    external_builds = load_path_of_building_builds(
+        args.path_of_building, poedb_metadata=poedb_metadata
     )
     library: Sequence[Dict[str, object]] = list(BUILD_LIBRARY) + list(external_builds)
 
@@ -258,8 +260,26 @@ def run_cli(argv: Optional[List[str]] = None) -> int:
     if args.skill:
         skill_recs = recommend_builds_by_skill(args.skill, top_n=args.top, library=library)
         if not skill_recs:
-            print(f"No builds in the library use the skill '{args.skill}'.")
-            return 1
+            print(
+                f"No builds in the library use the skill '{args.skill}'.\n"
+                "Generating a fresh Path of Building plan from scratch..."
+            )
+            try:
+                generated_build = generate_build_for_skill(
+                    args.skill, poedb_metadata=poedb_metadata
+                )
+            except ValueError as exc:
+                print(str(exc))
+                return 1
+            skill_recs = [
+                BuildRecommendation(
+                    build=generated_build,
+                    score=100,
+                    matched_tags={
+                        "skill": [f"{args.skill} (auto-generated)"]
+                    },
+                )
+            ]
         present_recommendations(skill_recs)
         return 0
 
