@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from typing import Dict, List
 
+from .demo import get_deadeye_demo_build
+
 Build = Dict[str, object]
 
 BUILD_LIBRARY: List[Build] = [
@@ -318,5 +320,7 @@ BUILD_LIBRARY: List[Build] = [
         },
     },
 ]
+
+BUILD_LIBRARY.append(get_deadeye_demo_build())
 
 __all__ = ["BUILD_LIBRARY", "Build"]

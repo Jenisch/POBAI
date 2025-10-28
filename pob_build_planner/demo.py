@@ -10,6 +10,12 @@ DEADEYE_RESOURCE = resources.files("pob_build_planner.data_files").joinpath("dea
 BASE_VERSION = "3_24"
 _CLASS_NAME = "Ranger"
 _ASCENDANCY = "Deadeye"
+_BUILD_ID = "deadeye_demo"
+_BUILD_NAME = "Deadeye Demo Ranger"
+_SUMMARY = (
+    "Demonstration Deadeye tree showcasing two allocated passive nodes so imports "
+    "render a populated Path of Building profile."
+)
 
 
 def _load_deadeye_xml() -> str:
@@ -49,12 +55,52 @@ def get_deadeye_demo_build(tree_version: str | None = None) -> dict[str, object]
     """Return a Build dict referencing the demo payload."""
 
     version = tree_version or BASE_VERSION
+    pob_code = get_deadeye_demo_code(tree_version)
     return {
-        "level": 90,
+        "id": _BUILD_ID,
+        "name": _BUILD_NAME,
+        "summary": _SUMMARY,
         "ascendancy": f"{_CLASS_NAME} - {_ASCENDANCY}",
+        "level": 90,
+        "tags": {
+            "damage_type": ["elemental"],
+            "combat_range": ["ranged"],
+            "damage_source": ["attack"],
+        },
+        "core_passives": [
+            "Allocates Finesse near the Ranger start.",
+            "Allocates Quickstep on the Ranger path for movement speed.",
+        ],
+        "skill_gems": {
+            "main_skill": "Kinetic Blast",
+            "six_link": [
+                "Kinetic Blast",
+                "Greater Multiple Projectiles Support",
+                "Elemental Damage with Attacks Support",
+                "Inspiration Support",
+                "Added Lightning Damage Support",
+                "Increased Critical Strikes Support",
+            ],
+            "guard": "Steelskin",
+            "aura_setup": ["Grace", "Determination"],
+            "mobility": "Dash",
+        },
+        "gear": {
+            "weapon": "Rare wand with elemental damage and attack speed.",
+            "quiver": "Penetrating Arrow Quiver with elemental damage to attacks.",
+            "helmet": "Evasion helmet with life and resistances.",
+        },
+        "progression": {
+            "leveling": (
+                "Follow the highlighted nodes to reach Finesse and Quickstep while investing in "
+                "core projectile damage clusters."
+            ),
+        },
         "target_version": version,
-        "tree_spec": {"nodes": [40479, 29534]},
-        "pob_code": get_deadeye_demo_code(tree_version),
+        "tree_spec": {
+            "nodes": [40479, 29534],
+        },
+        "pob_code": pob_code,
     }
 
 

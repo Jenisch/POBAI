@@ -130,6 +130,28 @@ def test_run_cli_open_build_launch_error(monkeypatch, capsys):
     assert "Import code" in captured.out
 
 
+def test_run_cli_open_deadeye_demo(monkeypatch, capsys):
+    opened: list[str] = []
+
+    class FakeController:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def open_build(self, build):
+            opened.append(build.get("id"))
+            return build.get("pob_code", "demo_code")
+
+    monkeypatch.setattr(cli, "load_poedb_metadata", lambda _: {})
+    monkeypatch.setattr(cli, "load_path_of_building_builds", lambda *_args, **_kwargs: [])
+    monkeypatch.setattr(cli, "PathOfBuildingController", FakeController)
+
+    exit_code = cli.run_cli(["--open-build", "deadeye_demo"])
+    assert exit_code == 0
+    captured = capsys.readouterr()
+    assert "Opened build in Path of Building" in captured.out
+    assert opened == ["deadeye_demo"]
+
+
 def test_generate_skill_fallback(monkeypatch, capsys):
     class DummyResponse:
         def __enter__(self):
