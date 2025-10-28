@@ -12,10 +12,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import re
-from typing import Dict, Iterable, List, Mapping, MutableMapping, Optional
+from typing import Dict, Iterable, List, Mapping, MutableMapping, Optional, Sequence
 
 from .data import Build
 from .templates import ARCHETYPE_TEMPLATE_CODES
+from .passive_tree import generate_tree_spec
 
 
 def _normalise(text: str) -> str:
@@ -61,6 +62,22 @@ def _skill_name_contains(skill: str, *keywords: str) -> bool:
 
 
 @dataclass(frozen=True)
+class TreeTargets:
+    base_class: str
+    ascendancy: str
+    notable_names: Sequence[str]
+    ascendancy_notables: Sequence[str]
+
+    def build(self) -> Dict[str, object]:
+        return generate_tree_spec(
+            self.base_class,
+            self.ascendancy.split(" - ")[-1],
+            self.notable_names,
+            self.ascendancy_notables,
+        )
+
+
+@dataclass(frozen=True)
 class ArchetypePlan:
     """Recipe for producing a generated build."""
 
@@ -75,6 +92,7 @@ class ArchetypePlan:
     gear: Dict[str, str]
     progression: Dict[str, str]
     tags: Dict[str, object]
+    tree_targets: TreeTargets | None = None
 
     def instantiate(
         self, skill: str, *, metadata: Mapping[str, object]
@@ -131,6 +149,8 @@ class ArchetypePlan:
         template_code = ARCHETYPE_TEMPLATE_CODES.get(self.key)
         if template_code:
             build["template_code"] = template_code
+        if self.tree_targets is not None:
+            build["tree_spec"] = self.tree_targets.build()
         return build
 
 
@@ -178,6 +198,38 @@ ARCHETYPES: List[ArchetypePlan] = [
             "defense_layers": ["evasion", "spell_suppression", "ailment_avoidance"],
             "mobility": True,
         },
+        tree_targets=TreeTargets(
+            base_class="Ranger",
+            ascendancy="Ranger - Deadeye",
+            notable_names=[
+                "Fusillade",
+                "Acrobatics",
+                "Heart of Thunder",
+                "Trickery",
+                "Infused",
+                "Lethality",
+                "Instinct",
+                "King of the Hill",
+                "Piercing Shots",
+                "Heart of Oak",
+                "Blood Siphon",
+                "Primeval Force",
+                "Forces of Nature",
+                "Heartseeker",
+                "Druidic Rite",
+                "Shamanistic Fury",
+                "Wandslinger",
+                "Fury Bolts",
+            ],
+            ascendancy_notables=[
+                "Gathering Winds",
+                "Far Shot",
+                "Endless Munitions",
+                "Ricochet",
+                "Focal Point",
+                "Wind Ward",
+            ],
+        ),
     ),
     ArchetypePlan(
         key="bow_chaos",

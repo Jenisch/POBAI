@@ -115,6 +115,8 @@ def build_to_xml(build: Build, *, target_version: str = TARGET_VERSION) -> str:
         tree = ET.SubElement(root, "Tree", activeSpec="1")
     else:
         tree.set("activeSpec", tree.get("activeSpec", "1"))
+    tree_spec = t.cast(dict[str, t.Any] | None, build.get("tree_spec"))
+
     specs = tree.findall("Spec")
     if not specs:
         specs = [
@@ -133,6 +135,18 @@ def build_to_xml(build: Build, *, target_version: str = TARGET_VERSION) -> str:
         if applied_target_version:
             spec.set("treeVersion", applied_target_version)
             spec.set("targetVersion", applied_target_version)
+        if tree_spec:
+            nodes = tree_spec.get("nodes")
+            if nodes:
+                spec.set(
+                    "nodes",
+                    ",".join(str(int(node)) for node in t.cast(t.Iterable[int], nodes)),
+                )
+            if "class_id" in tree_spec:
+                spec.set("classId", str(tree_spec["class_id"]))
+            if "ascend_class_id" in tree_spec:
+                spec.set("ascendClassId", str(tree_spec["ascend_class_id"]))
+            build_elem.set("ascendClassName", ascendancy)
 
     build_elem.set("mainSocketGroup", build_elem.get("mainSocketGroup", "1"))
 

@@ -60,13 +60,17 @@ def test_build_to_xml_contains_skill_info() -> None:
     assert gem.get("nameSpec")
 
 
-def test_build_to_xml_uses_template_tree_and_items() -> None:
+def test_build_to_xml_includes_generated_tree_and_items() -> None:
     build = generate_build_for_skill("Kinetic Blast")
     xml = build_to_xml(build)
     root = ET.fromstring(xml)
     spec = root.find(".//Tree/Spec")
     assert spec is not None
-    assert spec.get("nodes")
+    nodes = spec.get("nodes")
+    assert nodes
+    assert "50459" in nodes.split(",")
+    assert spec.get("classId") == "2"
+    assert spec.get("ascendClassId") == "1"
     items = root.find("Items")
     assert items is not None
     assert list(items)

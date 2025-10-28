@@ -11,7 +11,10 @@ def test_generate_build_includes_skill_in_six_link():
     gems = build["skill_gems"]["six_link"]
     assert gems[0] == "Kinetic Blast"
     assert "Power Charge On Critical Support" in gems
-    assert "template_code" in build
+    tree_spec = build.get("tree_spec")
+    assert tree_spec is not None
+    assert len(tree_spec["nodes"]) > 50
+    assert 50459 in tree_spec["nodes"]
 
 
 def test_generate_build_applies_metadata_tags():
