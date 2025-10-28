@@ -12,11 +12,15 @@ from __future__ import annotations
 
 import base64
 import copy
+import json
 import os
 from dataclasses import dataclass
 import subprocess
 import tempfile
 import typing as t
+import urllib.error
+import urllib.parse
+import urllib.request
 import webbrowser
 import xml.etree.ElementTree as ET
 import zlib
@@ -25,6 +29,7 @@ from .data import Build
 
 
 POBB_IN_BASE_URL = "https://pobb.in/"
+POBB_IN_API_URL = urllib.parse.urljoin(POBB_IN_BASE_URL, "api/internal/paste")
 
 
 TARGET_VERSION = "3_24"
@@ -139,6 +144,7 @@ def build_to_xml(build: Build, *, target_version: str = TARGET_VERSION) -> str:
         activeSkillId=main_skill.replace(" ", ""),
         enabled="true",
         slot="Main",
+        label="Main Skill",
     )
     six_link = t.cast(t.Iterable[str], skills.get("six_link", []))
     for gem in six_link:
@@ -149,6 +155,7 @@ def build_to_xml(build: Build, *, target_version: str = TARGET_VERSION) -> str:
             level="20",
             quality="20",
             enabled="true",
+            nameSpec=str(gem),
         )
 
     items = t.cast(dict[str, str], build.get("gear", {}))
@@ -181,7 +188,40 @@ def build_to_code(build: Build) -> str:
 def build_to_pobb_in_url(build: Build) -> str:
     """Return a pobb.in share URL for a build."""
 
-    return f"{POBB_IN_BASE_URL}{build_to_code(build)}"
+    cached = build.get("pobb_in_url")
+    if isinstance(cached, str) and cached:
+        return cached
+
+    code = build_to_code(build)
+
+    payload = json.dumps({"content": code}).encode("utf-8")
+    request = urllib.request.Request(
+        POBB_IN_API_URL,
+        data=payload,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+
+    share_url: str
+    try:
+        with urllib.request.urlopen(request, timeout=10) as response:  # pragma: no cover - network
+            body = response.read().decode("utf-8")
+        data = json.loads(body)
+        if not isinstance(data, dict):
+            raise ValueError("Unexpected pobb.in response payload")
+        slug = data.get("id") or data.get("slug") or data.get("code")
+        if isinstance(slug, str) and slug:
+            share_url = urllib.parse.urljoin(POBB_IN_BASE_URL, slug)
+        else:
+            raise ValueError("Missing pobb.in share identifier")
+    except (OSError, ValueError, json.JSONDecodeError, urllib.error.URLError):
+        share_url = f"{POBB_IN_BASE_URL}{code}"
+
+    if share_url:
+        build["pobb_in_url"] = share_url
+    if "pob_code" not in build:
+        build["pob_code"] = code
+    return share_url
 
 
 WINDOWS_DEFAULT_EXECUTABLE = "Path of Building Community.exe"

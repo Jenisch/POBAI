@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import base64
+import copy
 import os
 import subprocess
 import sys
+import urllib.request
 import xml.etree.ElementTree as ET
 import zlib
 
@@ -24,7 +26,8 @@ from pob_build_planner.pob import (
 
 
 def test_build_to_code_round_trip() -> None:
-    build = BUILD_LIBRARY[0]
+    build = copy.deepcopy(BUILD_LIBRARY[0])
+    build.pop("pobb_in_url", None)
     code = build_to_code(build)
     padding = "=" * (-len(code) % 4)
     xml = zlib.decompress(base64.urlsafe_b64decode(code + padding)).decode("utf-8")
@@ -51,6 +54,10 @@ def test_build_to_xml_contains_skill_info() -> None:
     build = BUILD_LIBRARY[2]
     xml = build_to_xml(build)
     assert build["skill_gems"]["main_skill"] in xml  # type: ignore[index]
+    root = ET.fromstring(xml)
+    gem = root.find(".//Skills/Skill/Gem")
+    assert gem is not None
+    assert gem.get("nameSpec")
 
 
 def test_build_to_xml_uses_template_tree_and_items() -> None:
@@ -75,11 +82,24 @@ def test_build_to_xml_sets_latest_target_version() -> None:
     assert build_elem.get("targetVersion") == TARGET_VERSION
 
 
-def test_build_to_pobb_in_url_returns_share_link() -> None:
-    build = BUILD_LIBRARY[0]
+def test_build_to_pobb_in_url_returns_share_link(monkeypatch: pytest.MonkeyPatch) -> None:
+    build = copy.deepcopy(BUILD_LIBRARY[0])
+    build.pop("pobb_in_url", None)
+
+    class DummyResponse:
+        def __enter__(self) -> "DummyResponse":
+            return self
+
+        def __exit__(self, exc_type, exc, tb) -> bool:
+            return False
+
+        def read(self) -> bytes:
+            return b"{\"id\": \"abc123\"}"
+
+    monkeypatch.setattr(urllib.request, "urlopen", lambda *a, **k: DummyResponse())
+
     url = build_to_pobb_in_url(build)
-    assert url.startswith("https://pobb.in/")
-    assert len(url.split("/")) >= 4  # ensures a code is appended
+    assert url == "https://pobb.in/abc123"
 
 
 def test_controller_file_mode_permission_error(monkeypatch: pytest.MonkeyPatch) -> None:

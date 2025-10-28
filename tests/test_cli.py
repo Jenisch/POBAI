@@ -3,6 +3,7 @@ import sys
 from types import SimpleNamespace
 
 import pytest
+import urllib.request
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -103,6 +104,18 @@ def test_run_cli_open_build_launch_error(monkeypatch, capsys):
 
 
 def test_generate_skill_fallback(monkeypatch, capsys):
+    class DummyResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read(self) -> bytes:
+            return b"{\"id\": \"generated\"}"
+
+    monkeypatch.setattr(urllib.request, "urlopen", lambda *args, **kwargs: DummyResponse())
+
     monkeypatch.setattr(cli, "load_poedb_metadata", lambda _: {
         "kineticblast": {
             "skill_tags": ["attack", "projectile", "wand"],
