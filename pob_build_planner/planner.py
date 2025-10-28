@@ -192,6 +192,80 @@ def playstyle_from_description(description: str) -> PlaystylePreferences:
     return PlaystylePreferences.from_dict(parse_freeform_preferences(description))
 
 
+def _normalise_skill_name(name: str) -> str:
+    """Simplify skill names for fuzzy comparisons."""
+
+    return re.sub(r"[^a-z0-9]+", "", name.lower())
+
+
+def _iter_skill_gems(build: Build) -> Iterable[Tuple[str, str]]:
+    """Yield (slot, gem_name) pairs from a build's skill setup."""
+
+    skill_section = build.get("skill_gems", {}) or {}
+    for slot, value in skill_section.items():
+        if isinstance(value, str):
+            yield slot, value
+        elif isinstance(value, list):
+            for gem in value:
+                yield slot, str(gem)
+
+
+def _score_build_for_skill(skill: str, build: Build) -> Tuple[int, List[str]]:
+    """Return a score and the matching gem labels for a requested skill."""
+
+    requested = _normalise_skill_name(skill)
+    if not requested:
+        return 0, []
+
+    matches: List[str] = []
+    score = 0
+
+    slot_priority = {
+        "main_skill": 100,
+        "six_link": 80,
+    }
+
+    for slot, gem in _iter_skill_gems(build):
+        candidate = _normalise_skill_name(gem)
+        if not candidate:
+            continue
+        weight = 0
+        if candidate == requested:
+            weight = slot_priority.get(slot, 60)
+        elif requested in candidate or candidate in requested:
+            weight = slot_priority.get(slot, 60) - 25
+        if weight <= 0:
+            continue
+        score = max(score, weight)
+        matches.append(f"{gem} ({slot.replace('_', ' ')})")
+
+    if not matches:
+        return 0, []
+
+    matches = sorted(dict.fromkeys(matches))
+    return score, matches
+
+
+def recommend_builds_by_skill(skill: str, top_n: int = 3) -> List[BuildRecommendation]:
+    """Return builds that prominently feature the requested skill gem."""
+
+    recommendations: List[BuildRecommendation] = []
+    for build in BUILD_LIBRARY:
+        score, matches = _score_build_for_skill(skill, build)
+        if score <= 0:
+            continue
+        recommendations.append(
+            BuildRecommendation(
+                build=build,
+                score=score,
+                matched_tags={"skill": matches},
+            )
+        )
+
+    recommendations.sort(key=lambda rec: rec.score, reverse=True)
+    return recommendations[:top_n]
+
+
 @dataclass
 class BuildRecommendation:
     build: Build

@@ -6,6 +6,7 @@ from .planner import (
     parse_freeform_preferences,
     playstyle_from_description,
     get_build_by_id,
+    recommend_builds_by_skill,
     recommend_builds,
     recommend_dual_phase_builds,
 )
@@ -17,6 +18,7 @@ __all__ = [
     "DualPhasePlan",
     "recommend_builds",
     "recommend_dual_phase_builds",
+    "recommend_builds_by_skill",
     "get_build_by_id",
     "parse_freeform_preferences",
     "playstyle_from_description",

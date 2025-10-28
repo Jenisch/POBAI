@@ -7,6 +7,7 @@ from pob_build_planner.planner import (
     PlaystylePreferences,
     playstyle_from_description,
     recommend_builds,
+    recommend_builds_by_skill,
     recommend_dual_phase_builds,
 )
 
@@ -69,3 +70,19 @@ def test_description_merges_multiple_focus_keywords():
     assert sorted(prefs.content_focus) == ["bossing", "mapping"]
     assert prefs.league_start is True
     assert prefs.budget == "league_start"
+
+
+def test_recommendations_by_skill_prioritise_main_skill_matches():
+    results = recommend_builds_by_skill("Cyclone")
+    assert results, "Expected at least one Cyclone build"
+    top = results[0]
+    assert top.build["id"] == "cyclone_slayer"
+    assert "skill" in top.matched_tags
+    assert any("Cyclone" in value for value in top.matched_tags["skill"])
+    assert top.pob_link().startswith("https://pobb.in/")
+
+
+def test_skill_lookup_supports_partial_matches():
+    results = recommend_builds_by_skill("toxic")
+    assert results, "Expected a match when searching for toxic"
+    assert any("Toxic Rain" in value for rec in results for value in rec.matched_tags["skill"])

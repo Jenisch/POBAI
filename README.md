@@ -60,6 +60,19 @@ For machine-readable output, add `--json` to emit the recommendations as JSON.
 Each entry contains the matched tags, PoB import code, and a shareable
 `https://pobb.in/<code>` link.
 
+### Quick skill gem lookup
+
+When you already know the active skill you want to play, supply it directly via
+`--skill`. The planner will surface builds from the curated library that use the
+gem in their main setup and emit ready-to-import PoB codes and pobb.in links:
+
+```bash
+python -m pob_build_planner.cli --skill "Cyclone" --open
+```
+
+This bypasses the broader preference scoring so you can jump straight from a
+single skill idea to a ready-to-import Path of Building profile.
+
 ### Dual-phase planning
 
 When you want a guided path from day one to pinnacle bossing, use the dual-phase

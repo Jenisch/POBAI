@@ -10,6 +10,7 @@ from .planner import (
     get_build_by_id,
     parse_freeform_preferences,
     recommend_builds,
+    recommend_builds_by_skill,
     recommend_dual_phase_builds,
 )
 from .pob import PathOfBuildingController
@@ -45,6 +46,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--damage-source",
         help="Primary source of damage: attack, spell, minion, trap, damage_over_time.",
+    )
+    parser.add_argument(
+        "--skill",
+        help=(
+            "Name of a skill gem to search for builds (e.g. 'Cyclone'). "
+            "Ignores other preference filters."
+        ),
     )
     parser.add_argument("--complexity", help="Desired complexity (low, medium, high).")
     parser.add_argument("--budget", help="Target budget tier (low, medium, high, league_start).")
@@ -167,6 +175,28 @@ def run_cli(argv: Optional[List[str]] = None) -> int:
         print(f"Opened build in Path of Building. Import code: {code}")
         return 0
 
+    def present_recommendations(recommendations: List[Any]) -> None:
+        if args.json:
+            payload = [rec.to_payload() for rec in recommendations]
+            print(json.dumps(payload, indent=2))
+        else:
+            for idx, rec in enumerate(recommendations, start=1):
+                print(f"===== Recommendation #{idx} =====")
+                print(rec.to_report())
+                if idx != len(recommendations):
+                    print("\n")
+        if args.open and recommendations:
+            code = controller.open_build(recommendations[0].build)
+            print(f"\nOpened top recommendation in Path of Building. Import code: {code}")
+
+    if args.skill:
+        skill_recs = recommend_builds_by_skill(args.skill, top_n=args.top)
+        if not skill_recs:
+            print(f"No builds in the library use the skill '{args.skill}'.")
+            return 1
+        present_recommendations(skill_recs)
+        return 0
+
     preferences = merge_config(args)
     if args.dual_phase:
         plan = recommend_dual_phase_builds(preferences, top_n=args.top)
@@ -198,18 +228,7 @@ def run_cli(argv: Optional[List[str]] = None) -> int:
     if not recommendations:
         print("No builds matched the provided playstyle. Try relaxing your filters.")
         return 1
-    if args.json:
-        payload = [rec.to_payload() for rec in recommendations]
-        print(json.dumps(payload, indent=2))
-    else:
-        for idx, rec in enumerate(recommendations, start=1):
-            print(f"===== Recommendation #{idx} =====")
-            print(rec.to_report())
-            if idx != len(recommendations):
-                print("\n")
-    if args.open and recommendations:
-        code = controller.open_build(recommendations[0].build)
-        print(f"\nOpened top recommendation in Path of Building. Import code: {code}")
+    present_recommendations(recommendations)
     return 0
 
 
