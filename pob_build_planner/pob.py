@@ -102,7 +102,10 @@ def build_to_xml(build: Build, *, target_version: str = TARGET_VERSION) -> str:
         build_elem = ET.SubElement(root, "Build")
     build_elem.set("level", str(build.get("level", 90)))
     template_target_version = build_elem.get("targetVersion") if using_template else None
-    applied_target_version = template_target_version or target_version
+    if requested_version:
+        applied_target_version = target_version
+    else:
+        applied_target_version = template_target_version or target_version
     if applied_target_version:
         build_elem.set("targetVersion", applied_target_version)
     build_elem.set("className", class_name)

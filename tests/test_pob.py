@@ -98,6 +98,20 @@ def test_build_to_xml_uses_template_target_version_when_present() -> None:
         assert target_version == TARGET_VERSION
 
 
+def test_build_to_xml_overrides_template_target_version_when_requested() -> None:
+    build = generate_build_for_skill("Kinetic Blast")
+    build["target_version"] = "9_99"
+    xml = build_to_xml(build)
+    root = ET.fromstring(xml)
+    build_elem = root.find("Build")
+    assert build_elem is not None
+    assert build_elem.get("targetVersion") == "9_99"
+    spec = root.find(".//Tree/Spec")
+    assert spec is not None
+    assert spec.get("treeVersion") == "9_99"
+    assert spec.get("targetVersion") == "9_99"
+
+
 def test_build_to_xml_sets_main_skill_group() -> None:
     build = generate_build_for_skill("Kinetic Blast")
     xml = build_to_xml(build)
