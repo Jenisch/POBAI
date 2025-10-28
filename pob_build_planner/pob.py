@@ -73,6 +73,7 @@ def build_to_xml(build: Build, *, target_version: str = TARGET_VERSION) -> str:
 
     class_name, ascendancy = _split_class_and_ascendancy(str(build.get("ascendancy", "")))
     template_root: ET.Element | None = None
+    using_template = False
     template_code = build.get("template_code")
     if isinstance(template_code, str) and template_code:
         try:
@@ -83,6 +84,7 @@ def build_to_xml(build: Build, *, target_version: str = TARGET_VERSION) -> str:
 
     if template_root is not None:
         root = copy.deepcopy(template_root)
+        using_template = True
     else:
         root = ET.Element("PathOfBuilding")
 
@@ -90,7 +92,10 @@ def build_to_xml(build: Build, *, target_version: str = TARGET_VERSION) -> str:
     if build_elem is None:
         build_elem = ET.SubElement(root, "Build")
     build_elem.set("level", str(build.get("level", 90)))
-    build_elem.set("targetVersion", target_version)
+    template_target_version = build_elem.get("targetVersion") if using_template else None
+    applied_target_version = template_target_version or target_version
+    if applied_target_version:
+        build_elem.set("targetVersion", applied_target_version)
     build_elem.set("className", class_name)
     build_elem.set("ascendClassName", ascendancy)
 
@@ -118,7 +123,8 @@ def build_to_xml(build: Build, *, target_version: str = TARGET_VERSION) -> str:
     for spec in specs:
         spec.set("className", class_name)
         spec.set("ascendClassName", ascendancy)
-        spec.set("targetVersion", target_version)
+        if not using_template:
+            spec.set("targetVersion", target_version)
 
     for child in list(root):
         if child.tag == "Skills":

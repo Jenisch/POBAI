@@ -59,6 +59,23 @@ def test_build_to_xml_uses_template_tree_and_items() -> None:
     assert list(items)
 
 
+def test_build_to_xml_preserves_template_target_version() -> None:
+    build = generate_build_for_skill("Kinetic Blast")
+    xml = build_to_xml(build)
+    root = ET.fromstring(xml)
+    build_elem = root.find("Build")
+    assert build_elem is not None
+
+    template_code = build.get("template_code")
+    assert isinstance(template_code, str)
+    padding = "=" * (-len(template_code) % 4)
+    template_xml = zlib.decompress(base64.urlsafe_b64decode(template_code + padding)).decode("utf-8")
+    template_root = ET.fromstring(template_xml)
+    expected_version = template_root.find("Build").get("targetVersion")
+
+    assert build_elem.get("targetVersion") == expected_version
+
+
 def test_build_to_pobb_in_url_returns_share_link() -> None:
     build = BUILD_LIBRARY[0]
     url = build_to_pobb_in_url(build)
